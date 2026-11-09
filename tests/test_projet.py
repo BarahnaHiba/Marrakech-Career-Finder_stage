@@ -93,7 +93,7 @@ def test_toutes_les_vues_privees_protegees():
             noms = [getattr(d, "id", getattr(getattr(d, "func", None), "attr", "")) for d in n.decorator_list]
             est_route = any(isinstance(d, ast.Call) and getattr(d.func, "attr", "") == "route" for d in n.decorator_list)
             if est_route and n.name not in publiques:
-                assert "login_required" in noms, f"{n.name} sans @login_required"
+                assert "login_required" in noms or "admin_required" in noms, f"{n.name} sans contrôle d'accès"
 
 
 MOTIFS_SECRETS = [r"AIza[0-9A-Za-z_\-]{30,}", r"sk-[A-Za-z0-9\-_]{20,}", r"postgres(?:ql)?://[^:\s]+:[^@\s]{4,}@",

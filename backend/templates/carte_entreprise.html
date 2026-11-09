@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Carte — {{ entreprise.nom_entreprise }}{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    .map-page { max-width: 1050px; margin: 0 auto; }
+    .map-company { margin-bottom: 18px; }
+    .map-company h1 { margin-bottom: 6px; }
+    .map-company p { color: #77718f; margin: 0; }
+    #company-map { width: 100%; height: min(68vh, 620px); min-height: 340px; border-radius: 20px; z-index: 1; }
+    .map-message { padding: 18px; margin-bottom: 16px; }
+    .map-credit { font-size: .82rem; color: #77718f; margin-top: 10px; }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <section class="map-page">
+    <header class="map-company">
+      <h1 class="page-title"><i class="bi bi-geo-alt title-icon"></i>{{ entreprise.nom_entreprise }}</h1>
+      <p>{{ entreprise.adresse or 'Adresse non renseignée' }}{% if entreprise.ville %} · {{ entreprise.ville }}{% endif %}</p>
+    </header>
+
+    {% if erreur_carte %}
+      <p class="card map-message">{{ erreur_carte }}</p>
+      <a class="btn btn-outline" href="{{ url_for('entreprises') }}">Retour aux entreprises</a>
+    {% else %}
+      <div id="company-map" role="application" aria-label="Carte de {{ entreprise.nom_entreprise }}"></div>
+      <p class="map-credit">Carte © OpenStreetMap · Emplacement trouvé : {{ coordonnees.libelle }}</p>
+      <a class="btn btn-outline" href="{{ url_for('entreprises') }}">Retour aux entreprises</a>
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  {% if coordonnees %}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    <script>
+      const positionEntreprise = {{ [coordonnees.latitude, coordonnees.longitude] | tojson }};
+      const carte = L.map('company-map').setView(positionEntreprise, 16);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      }).addTo(carte);
+      const marqueur = L.marker(positionEntreprise).addTo(carte);
+      const libelle = document.createElement('strong');
+      libelle.textContent = {{ entreprise.nom_entreprise | tojson }};
+      marqueur.bindPopup(libelle).openPopup();
+    </script>
+  {% endif %}
+{% endblock %}

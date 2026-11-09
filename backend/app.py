@@ -55,12 +55,15 @@ from matching import calculer_scores_matching, analyser_matching
 from cv_parser import analyser_texte_cv
 from security import init_security, limiter_tentatives, contenu_fichier_valide, est_production
 from email_service import DUREE_CODE_MINUTES, envoyer_email_code
+from admin_access import admin_required, email_est_administrateur
+from maps import URLError, geocoder_entreprise
 
 app = Flask(
     __name__,
     static_folder=os.path.join(DOSSIER_PROJET, "public", "static"),
     static_url_path="/static",
 )
+app.jinja_env.globals["email_est_administrateur"] = email_est_administrateur
 # SECRET_KEY obligatoire en production, cookies sécurisés, CSRF, en-têtes HTTP, limite d'upload
 init_security(app)
 
@@ -506,6 +509,42 @@ def accueil():
 def entreprises():
     return liste_entreprises("Entreprises",
                              "Toutes les entreprises de Marrakech : coordonnées, candidature et contact au même endroit.")
+
+
+@app.route('/entreprises/<int:company_id>/carte')
+@login_required
+def carte_entreprise(company_id):
+    conn = get_db_connection()
+    try:
+        entreprise = conn.execute(
+            "SELECT id, nom_entreprise, adresse, ville FROM companies WHERE id = %s",
+            (company_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not entreprise:
+        abort(404)
+
+    coordonnees = None
+    erreur_carte = None
+    try:
+        coordonnees = geocoder_entreprise(
+            entreprise['nom_entreprise'], entreprise['adresse'], entreprise['ville']
+        )
+        if not coordonnees:
+            erreur_carte = "Aucun emplacement n'a été trouvé pour cette entreprise."
+    except (URLError, TimeoutError, json.JSONDecodeError, KeyError, ValueError) as erreur:
+        print("Géocodage indisponible :", repr(erreur))
+        erreur_carte = "La carte est temporairement indisponible. Réessaie plus tard."
+
+    return render_template(
+        'carte_entreprise.html',
+        entreprise=entreprise,
+        coordonnees=coordonnees,
+        erreur_carte=erreur_carte,
+    )
+
 
 # Page "Mes favoris" (réutilise le même template entreprises.html)
 @app.route('/mes-favoris')
@@ -1876,6 +1915,94 @@ def dashboard():
         secteurs_labels=[r['secteur'] or 'Non précisé' for r in par_secteur],
         secteurs_valeurs=[r['nombre'] for r in par_secteur]
     )
+
+
+@app.route('/admin')
+@admin_required
+def dashboard_admin():
+    conn = get_db_connection()
+    try:
+        utilisateurs = conn.execute('''
+            SELECT id, nom, email, date_creation, email_verifie
+            FROM users
+            ORDER BY date_creation DESC NULLS LAST, id DESC
+            LIMIT 10
+        ''').fetchall()
+        candidatures = conn.execute('''
+            SELECT applications.id, users.nom AS nom_utilisateur, users.email,
+                   companies.nom_entreprise, applications.statut, applications.date_candidature
+            FROM applications
+            JOIN users ON users.id = applications.user_id
+            JOIN companies ON companies.id = applications.company_id
+            ORDER BY applications.date_candidature DESC NULLS LAST, applications.id DESC
+            LIMIT 20
+        ''').fetchall()
+        totaux = conn.execute('''
+            SELECT
+                (SELECT COUNT(*) FROM users) AS utilisateurs,
+                (SELECT COUNT(*) FROM users
+                 WHERE lower(email_verifie::text) IN ('1', 'true', 't', 'oui', 'yes')) AS emails_verifies,
+                (SELECT COUNT(*) FROM companies) AS entreprises,
+                (SELECT COUNT(*) FROM applications) AS candidatures
+        ''').fetchone()
+        statuts_bruts = conn.execute(
+            "SELECT statut, COUNT(*) AS nombre FROM applications GROUP BY statut"
+        ).fetchall()
+        secteurs = conn.execute('''
+            SELECT secteur, COUNT(*) AS nombre
+            FROM companies
+            GROUP BY secteur
+            ORDER BY nombre DESC
+            LIMIT 8
+        ''').fetchall()
+    finally:
+        conn.close()
+
+    utilisateurs = [dict(row) for row in utilisateurs]
+    for utilisateur in utilisateurs:
+        utilisateur['email_verifie'] = email_est_verifie(utilisateur['email_verifie'])
+
+    comptes_statuts = {statut: 0 for statut in STATUTS}
+    for ligne in statuts_bruts:
+        comptes_statuts[normaliser_statut(ligne['statut'])] += ligne['nombre']
+
+    return render_template(
+        'admin.html',
+        totaux=dict(totaux),
+        utilisateurs=utilisateurs,
+        candidatures=[dict(row) for row in candidatures],
+        statuts_labels=[statut for statut in STATUTS if comptes_statuts[statut]],
+        statuts_valeurs=[comptes_statuts[statut] for statut in STATUTS if comptes_statuts[statut]],
+        secteurs_labels=[ligne['secteur'] or 'Non précisé' for ligne in secteurs],
+        secteurs_valeurs=[ligne['nombre'] for ligne in secteurs],
+        statuts=STATUTS,
+        formater_date=formater_date,
+        normaliser_statut=normaliser_statut,
+    )
+
+
+@app.route('/admin/candidatures/<int:application_id>/statut', methods=['POST'])
+@admin_required
+def admin_changer_statut(application_id):
+    statut = request.form.get('statut', '')
+    if statut not in STATUTS:
+        abort(400, description="Statut de candidature invalide.")
+
+    conn = get_db_connection()
+    try:
+        resultat = conn.execute(
+            "UPDATE applications SET statut = %s WHERE id = %s",
+            (statut, application_id)
+        )
+        if resultat.rowcount == 0:
+            abort(404)
+        conn.commit()
+    finally:
+        conn.close()
+
+    flash("Statut de la candidature mis à jour.")
+    return redirect(url_for('dashboard_admin'))
+
 
 # --- ANALYSE DES DONNÉES ---
 @app.route('/analyse')

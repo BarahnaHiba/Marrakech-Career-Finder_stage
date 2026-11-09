@@ -154,8 +154,12 @@
           {% endif %}
         </div>
 
-        {% if e['recherche_linkedin'] or e['email'] or e['site_web'] %}
+        {% if e['recherche_linkedin'] or e['email'] or e['site_web'] or e['adresse'] or e['ville'] %}
         <div class="ent-actions-icones">
+            {% if e['adresse'] or e['ville'] %}
+              <a class="btn-icone" href="{{ url_for('carte_entreprise', company_id=e['id']) }}"
+                 title="Voir la carte" aria-label="Voir la carte"><i class="bi bi-geo-alt"></i></a>
+            {% endif %}
           {% if e['recherche_linkedin'] %}
             <a class="btn-icone linkedin" href="{{ e['recherche_linkedin'] }}" target="_blank" rel="noopener"
                title="Chercher sur LinkedIn" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>

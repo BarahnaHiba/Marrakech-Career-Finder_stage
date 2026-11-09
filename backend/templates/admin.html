@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block title %}Administration — Marrakech Career Finder{% endblock %}
+
+{% block extra_css %}
+  <style>
+    .admin-intro { margin-bottom: 24px; }
+    .admin-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 16px; }
+    .admin-kpi { padding: 20px; min-height: 112px; }
+    .admin-kpi .stat-number { font-size: 2rem; }
+    .admin-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+    .admin-chart { min-height: 290px; }
+    .admin-table-wrap { overflow-x: auto; }
+    .admin-table { width: 100%; border-collapse: collapse; min-width: 620px; }
+    .admin-table th, .admin-table td { padding: 11px 12px; text-align: left; border-bottom: 1px solid #eeebfb; }
+    .admin-table th { color: #716b91; font-size: .82rem; }
+    .admin-table td { font-size: .9rem; }
+    .admin-table select { max-width: 190px; padding: 8px; border: 1px solid #d9d3f7; border-radius: 10px; }
+    .admin-status-form { display: flex; align-items: center; gap: 8px; }
+    .admin-section-note { color: #77718f; font-size: .88rem; }
+    @media (max-width: 600px) {
+      .admin-status-form { align-items: stretch; flex-direction: column; }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <header class="admin-intro">
+    <h1 class="page-title"><i class="bi bi-shield-lock title-icon"></i>Administration</h1>
+    <p class="stat-label page-sub">Vue d’ensemble des utilisateurs, entreprises et candidatures.</p>
+  </header>
+
+  <section class="admin-kpis" aria-label="Statistiques générales">
+    <article class="card admin-kpi"><div class="stat-number">{{ totaux.utilisateurs }}</div><div class="stat-label">Utilisateurs</div></article>
+    <article class="card admin-kpi"><div class="stat-number">{{ totaux.emails_verifies }}</div><div class="stat-label">E-mails vérifiés</div></article>
+    <article class="card admin-kpi"><div class="stat-number">{{ totaux.entreprises }}</div><div class="stat-label">Entreprises</div></article>
+    <article class="card admin-kpi"><div class="stat-number">{{ totaux.candidatures }}</div><div class="stat-label">Candidatures</div></article>
+  </section>
+
+  <h2 class="section-title">Activité des candidatures</h2>
+  <section class="admin-charts">
+    <article class="card admin-chart">
+      <h3 class="card-title">Répartition par statut</h3>
+      <canvas id="admin-statuts" aria-label="Candidatures par statut"></canvas>
+    </article>
+    <article class="card admin-chart">
+      <h3 class="card-title">Entreprises par secteur</h3>
+      <canvas id="admin-secteurs" aria-label="Entreprises par secteur"></canvas>
+    </article>
+  </section>
+
+  <h2 class="section-title">Utilisateurs récents</h2>
+  <section class="card admin-table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>Nom</th><th>E-mail</th><th>Inscription</th><th>Vérification</th></tr></thead>
+      <tbody>
+        {% for utilisateur in utilisateurs %}
+          <tr>
+            <td>{{ utilisateur.nom }}</td>
+            <td>{{ utilisateur.email }}</td>
+            <td>{{ formater_date(utilisateur.date_creation) or '—' }}</td>
+            <td>{% if utilisateur.email_verifie %}Vérifié{% else %}En attente{% endif %}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4">Aucun utilisateur.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <h2 class="section-title">Candidatures récentes</h2>
+  <p class="admin-section-note">Tu peux mettre à jour le statut. Aucune candidature ni aucun compte ne peut être supprimé depuis cet espace.</p>
+  <section class="card admin-table-wrap">
+    <table class="admin-table">
+      <thead><tr><th>Candidat</th><th>Entreprise</th><th>Date</th><th>Statut</th></tr></thead>
+      <tbody>
+        {% for candidature in candidatures %}
+          <tr>
+            <td>{{ candidature.nom_utilisateur }}<br><small>{{ candidature.email }}</small></td>
+            <td>{{ candidature.nom_entreprise }}</td>
+            <td>{{ formater_date(candidature.date_candidature) or '—' }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('admin_changer_statut', application_id=candidature.id) }}" class="admin-status-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="statut" aria-label="Statut de la candidature">
+                  {% for statut in statuts %}
+                    <option value="{{ statut }}" {% if normaliser_statut(candidature.statut) == statut %}selected{% endif %}>{{ statut }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn btn-small" type="submit">Enregistrer</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4">Aucune candidature.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    new Chart(document.getElementById('admin-statuts'), {
+      type: 'doughnut',
+      data: {
+        labels: {{ statuts_labels | tojson }},
+        datasets: [{ data: {{ statuts_valeurs | tojson }},
+          backgroundColor: ['#7aa7e6', '#7c6bd6', '#f6c453', '#a898ee', '#f08a9b', '#7fd1a8', '#b8b8c8'] }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+    new Chart(document.getElementById('admin-secteurs'), {
+      type: 'bar',
+      data: { labels: {{ secteurs_labels | tojson }},
+        datasets: [{ label: 'Entreprises', data: {{ secteurs_valeurs | tojson }},
+          backgroundColor: '#7c6bd6', borderRadius: 8 }] },
+      options: { responsive: true, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+        plugins: { legend: { display: false } } }
+    });
+  </script>
+{% endblock %}

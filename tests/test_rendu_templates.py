@@ -11,12 +11,14 @@ from flask import Flask, render_template
 import cv_parser
 import matching
 import security
+from admin_access import email_est_administrateur
 
 RACINE = Path(__file__).resolve().parent.parent
 TEMPLATES = RACINE / "backend" / "templates"
 
 PARAMS = {"postuler": "<path:nom_entreprise>", "changer_statut": "<int:application_id>",
-          "changer_notes": "<int:application_id>", "candidature": None, "reinitialiser_mot_de_passe": "<jeton>"}
+          "changer_notes": "<int:application_id>", "candidature": None, "reinitialiser_mot_de_passe": "<jeton>",
+          "carte_entreprise": "<int:company_id>", "admin_changer_statut": "<int:application_id>"}
 
 CV = """AMINA LAHLOU
 Étudiante Data Analyst
@@ -40,6 +42,7 @@ def app_test():
     app = Flask(__name__, template_folder=str(TEMPLATES), static_folder=str(RACINE / "backend" / "static"))
     app.secret_key = "x" * 40
     app.jinja_env.globals["csrf_token"] = security.generer_jeton_csrf
+    app.jinja_env.globals["email_est_administrateur"] = email_est_administrateur
 
     class Anonyme:
         is_authenticated = False
@@ -103,3 +106,37 @@ def test_dashboard_nouvelles_statistiques():
                    offres_compatibles=None, activites=[], statuts_labels=[], statuts_valeurs=[],
                    secteurs_labels=[], secteurs_valeurs=[])
     assert "Importe ton CV" in html2 and "Aucune candidature" in html2
+
+
+def test_carte_entreprise_affiche_le_marqueur_openstreetmap():
+    html = rendre(
+        "carte_entreprise.html",
+        entreprise={"nom_entreprise": "Entreprise Exemple", "adresse": "Guéliz", "ville": "Marrakech"},
+        coordonnees={"latitude": 31.6295, "longitude": -7.9811, "libelle": "Marrakech, Maroc"},
+        erreur_carte=None,
+    )
+    assert "Entreprise Exemple" in html
+    assert "tile.openstreetmap.org" in html
+    assert "[31.6295, 31.6295]" not in html
+    assert "[31.6295, -7.9811]" in html
+    assert "OpenStreetMap" in html
+
+
+def test_tableau_admin_affiche_stats_et_formulaire_csrf():
+    html = rendre(
+        "admin.html",
+        totaux={"utilisateurs": 12, "emails_verifies": 9, "entreprises": 217, "candidatures": 5},
+        utilisateurs=[{"nom": "Amina Exemple", "email": "amina@example.com",
+                       "date_creation": "2026-11-09", "email_verifie": True}],
+        candidatures=[{"id": 3, "nom_utilisateur": "Amina Exemple", "email": "amina@example.com",
+                       "nom_entreprise": "Entreprise Exemple", "statut": "Relance",
+                       "date_candidature": "2026-11-09"}],
+        statuts_labels=["Relance"], statuts_valeurs=[1],
+        secteurs_labels=["Informatique"], secteurs_valeurs=[1],
+        statuts=["À postuler", "Relance"],
+        formater_date=lambda valeur: valeur,
+        normaliser_statut=lambda valeur: valeur,
+    )
+    assert "Utilisateurs récents" in html
+    assert "Entreprise Exemple" in html and "amina@example.com" in html
+    assert 'name="csrf_token"' in html

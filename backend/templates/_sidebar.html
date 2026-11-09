@@ -21,6 +21,9 @@
   <nav class="sidebar-nav">
     <a href="{{ url_for('accueil') }}" class="nav-item {{ 'active' if ep == 'accueil' }}"><i class="bi bi-house-door"></i>Accueil</a>
     <a href="{{ url_for('dashboard') }}" class="nav-item {{ 'active' if ep == 'dashboard' }}"><i class="bi bi-grid-1x2"></i>Dashboard</a>
+    {% if email_est_administrateur(current_user.email) %}
+      <a href="{{ url_for('dashboard_admin') }}" class="nav-item {{ 'active' if ep in ('dashboard_admin', 'admin_changer_statut') }}"><i class="bi bi-shield-lock"></i>Administration</a>
+    {% endif %}
     <a href="{{ url_for('entreprises') }}" class="nav-item {{ 'active' if ep == 'entreprises' }}"><i class="bi bi-buildings"></i>Entreprises</a>
     <a href="{{ url_for('opportunites') }}" class="nav-item {{ 'active' if ep == 'opportunites' }}"><i class="bi bi-briefcase"></i>Opportunités</a>
     <a href="{{ url_for('mes_favoris') }}" class="nav-item {{ 'active' if ep == 'mes_favoris' }}"><i class="bi bi-heart"></i>Mes favoris</a>
