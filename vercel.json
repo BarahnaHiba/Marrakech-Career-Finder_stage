@@ -3,7 +3,7 @@
   "functions": {
     "backend/app.py": {
       "maxDuration": 120,
-      "excludeFiles": "{tests/**,docs/**,scripts/**,data/**,DATA SUR EXCEL/**,database/**,Stage_a_marrakech.ipynb,data_nettoyee.xlsx,requirements-dev.txt,requirements-lock.txt,backend/static/**,backend/test_*.py,backend/inspect_sqlite.py,backend/migrate_sqlite_to_neon.py,backend/schema_report.txt}"
+      "excludeFiles": "{tests,docs,scripts,data,database,DATA SUR EXCEL}/**,{*.ipynb,*.xlsx},requirements-dev.txt,requirements-lock.txt,backend/static/**,backend/test_*.py,backend/inspect_sqlite.py,backend/migrate_sqlite_to_neon.py,backend/schema_report.txt"
     }
   }
 }
