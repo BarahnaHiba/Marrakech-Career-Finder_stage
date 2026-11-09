@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Analyse des données — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-bar-chart-line title-icon"></i>Analyse des données</h1>
+  <p class="stat-label page-sub">Un aperçu du travail de nettoyage et d'analyse derrière ce projet.</p>
+
+  <section class="analyse-grid">
+
+    <article class="analyse-card card" style="--tint:var(--violet-100)">
+      <span class="analyse-num">1</span>
+      <h2>Répartition de la priorité par secteur</h2>
+      <div class="analyse-img">
+        <img src="{{ url_for('static', filename='img/priorite_par_secteur.png') }}" alt="Répartition de la priorité par secteur">
+      </div>
+      <p>Ce graphique montre comment les entreprises se répartissent entre priorité Haute, Moyenne et Basse selon leur secteur. Les secteurs "IA, Data & Tech" et "Autre / Non classé" concentrent le plus grand nombre d'entreprises.</p>
+    </article>
+
+    <article class="analyse-card card" style="--tint:var(--blue-100)">
+      <span class="analyse-num">2</span>
+      <h2>Distribution du score total</h2>
+      <div class="analyse-img">
+        <img src="{{ url_for('static', filename='img/distribution_score.png') }}" alt="Distribution du score total">
+      </div>
+      <p>La majorité des entreprises ont un score total situé entre 40 et 55, avec un pic net autour de 42-43, ce qui reflète la méthode de calcul du score (note Google + nombre d'avis + priorité).</p>
+    </article>
+
+    <article class="analyse-card card" style="--tint:var(--yellow-100)">
+      <span class="analyse-num">3</span>
+      <h2>Note entreprise (Google) vs Score total</h2>
+      <div class="analyse-img">
+        <img src="{{ url_for('static', filename='img/note_vs_score.png') }}" alt="Note Google contre score total">
+      </div>
+      <p>Ce nuage de points confirme une corrélation logique : plus la note Google d'une entreprise est élevée, plus son score total tend à l'être aussi.</p>
+    </article>
+
+    <article class="analyse-card card" style="--tint:var(--pink-100)">
+      <span class="analyse-num">4</span>
+      <h2>Top 10 entreprises par score total</h2>
+      <div class="analyse-img">
+        <img src="{{ url_for('static', filename='img/top10_entreprises.png') }}" alt="Top 10 des entreprises par score total">
+      </div>
+      <p>Les entreprises les mieux notées et les plus commentées sur Google Places arrivent naturellement en tête du classement, avec des scores proches de 65.</p>
+    </article>
+
+  </section>
+{% endblock %}

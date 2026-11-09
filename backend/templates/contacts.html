@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Contacter — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-people title-icon"></i>Contacter les entreprises</h1>
+  <p class="stat-label page-sub">Les entreprises de Marrakech avec une adresse email : envoie ta candidature spontanée en un clic.</p>
+
+  <div class="filtres card">
+    <input id="recherche" type="search" placeholder="Rechercher une entreprise ou un email…">
+    <select id="filtre-domaine">
+      <option value="">Tous les domaines</option>
+      {% for d in domaines %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+    </select>
+    <button class="btn btn-small btn-outline" id="copier-tous" type="button">Copier tous les emails affichés</button>
+  </div>
+
+  <h2 class="section-title">Résultats (<span id="nb">{{ entreprises|length }}</span>)</h2>
+
+  <div class="cards-grid" id="grille">
+  {% for e in entreprises %}
+    {% set sujet = "Candidature spontanée – Stage – " ~ moi.nom %}
+    {% set message = "Bonjour,\n\nJe m'appelle " ~ moi.nom ~ ", étudiant(e) en 2e année AI / Data Analyst à Marrakech. Je souhaite effectuer un stage au sein de " ~ e.nom_entreprise ~ " et vous prie de bien vouloir trouver mon CV ci-joint.\n\nJe reste disponible pour un entretien.\n\nCordialement,\n" ~ moi.nom ~ "\n" ~ moi.telephone ~ "\n" ~ moi.email %}
+    <div class="contact-card card" data-texte="{{ (e.nom_entreprise ~ ' ' ~ e.email)|lower }}" data-domaine="{{ e.domaine }}" data-email="{{ e.email }}">
+      <p class="company-name">{{ e.nom_entreprise }}</p>
+      <span class="tag">{{ e.domaine }}</span>
+      <p class="company-meta">{{ e.adresse or '' }}</p>
+      <p class="contact-email"><i class="bi bi-envelope"></i>{{ e.email }}</p>
+      <p class="company-meta"><i class="bi bi-telephone"></i>{{ e.telephone or '—' }}</p>
+             {% if current_user.is_authenticated %}
+        <a class="btn btn-small"
+           href="{{ url_for('postuler', nom_entreprise=e.nom_entreprise, retour='contacts') }}"
+           data-nom="{{ e.nom_entreprise }}"
+           onclick="return confirm('Envoyer ta candidature avec ton CV à ' + this.dataset.nom + ' ?');"><i class="bi bi-send"></i>Envoyer avec mon CV</a>
+        {% endif %}
+      <div class="actions">
+        <a class="btn btn-small" target="_blank" rel="noopener"
+           href="https://mail.google.com/mail/?view=cm&fs=1&to={{ e.email|urlencode }}&su={{ sujet|urlencode }}&body={{ message|urlencode }}">Gmail</a>
+        <a class="btn btn-small btn-outline" href="mailto:{{ e.email }}?subject={{ sujet|urlencode }}&body={{ message|urlencode }}">Mail</a>
+        <button class="btn btn-small btn-outline copier" type="button" data-email="{{ e.email }}">Copier</button>
+        {% if e.site_web %}<a class="btn btn-small btn-outline" target="_blank" rel="noopener" href="{{ e.site_web }}">Site</a>{% endif %}
+      </div>
+    </div>
+  {% endfor %}
+  </div>
+
+  <div class="vide" id="vide" style="display:none;">Aucune entreprise ne correspond à la recherche.</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const cartes = Array.from(document.querySelectorAll('.contact-card'));
+  const champ = document.getElementById('recherche');
+  const filtre = document.getElementById('filtre-domaine');
+
+  function appliquer() {
+    const q = champ.value.trim().toLowerCase();
+    const d = filtre.value;
+    let n = 0;
+    cartes.forEach(c => {
+      const ok = (!q || c.dataset.texte.includes(q)) && (!d || c.dataset.domaine === d);
+      c.style.display = ok ? '' : 'none';
+      if (ok) n++;
+    });
+    document.getElementById('nb').textContent = n;
+    document.getElementById('vide').style.display = n ? 'none' : 'block';
+  }
+  champ.addEventListener('input', appliquer);
+  filtre.addEventListener('change', appliquer);
+
+  function copier(texte, bouton, libelle) {
+    navigator.clipboard.writeText(texte).then(() => {
+      const ancien = bouton.textContent;
+      bouton.textContent = libelle || 'Copié ✓';
+      setTimeout(() => bouton.textContent = ancien, 1500);
+    });
+  }
+  document.querySelectorAll('.copier').forEach(b =>
+    b.addEventListener('click', () => copier(b.dataset.email, b)));
+  document.getElementById('copier-tous').addEventListener('click', function () {
+    const emails = cartes.filter(c => c.style.display !== 'none').map(c => c.dataset.email);
+    copier(emails.join('; '), this, emails.length + ' emails copiés ✓');
+  });
+</script>
+{% endblock %}

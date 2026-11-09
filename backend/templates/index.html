@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Marrakech Career Finder{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+{% endblock %}
+
+{% block content %}
+
+  <!-- Bannière -->
+  <section class="hero-card">
+    <div class="hero-text">
+      <p class="kicker">Ton avenir professionnel commence ici</p>
+      <h1>Trouvez votre prochain stage à <em>Marrakech</em></h1>
+      <p class="hero-desc">Des entreprises réelles de Marrakech, classées selon votre CV. Postulez en quelques clics et suivez vos candidatures.</p>
+    </div>
+  </section>
+
+  <!-- 5 raccourcis -->
+  <section class="cats">
+    <a class="cat" href="{{ url_for('entreprises') }}" style="--tint:var(--violet-100)">
+      <span class="cat-icon"><i class="bi bi-mortarboard"></i></span><b>Stages</b><span>Gagnez en expérience</span>
+    </a>
+    <a class="cat" href="{{ url_for('opportunites') }}" style="--tint:#dff5ea">
+      <span class="cat-icon"><i class="bi bi-briefcase"></i></span><b>Opportunités</b><span>Les priorités pour vous</span>
+    </a>
+    <a class="cat" href="{{ url_for('entreprises') }}" style="--tint:var(--pink-100)">
+      <span class="cat-icon"><i class="bi bi-buildings"></i></span><b>Entreprises</b><span>Découvrez les recruteurs</span>
+    </a>
+    <a class="cat" href="{{ url_for('contacts') }}" style="--tint:var(--yellow-100)">
+      <span class="cat-icon"><i class="bi bi-telephone"></i></span><b>Contacts</b><span>Emails et téléphones</span>
+    </a>
+    <a class="cat" href="{{ url_for('profil') }}" style="--tint:var(--blue-100)">
+      <span class="cat-icon"><i class="bi bi-file-earmark-person"></i></span><b>CV &amp; Matching</b><span>Votre profil, nos conseils</span>
+    </a>
+  </section>
+
+  <div class="home-grid">
+
+    <!-- Offres populaires -->
+    <section>
+      <div class="sec-h">
+        <h2><i class="bi bi-fire sec-icon"></i>Offres populaires</h2>
+        <a href="{{ url_for('opportunites') }}">Voir toutes les offres <i class="bi bi-arrow-right"></i></a>
+      </div>
+
+      <div class="offer-list">
+        <a class="offer" href="{{ url_for('opportunites') }}">
+          <div class="offer-logo">DZ</div>
+          <div class="offer-body">
+            <h3>Datazad</h3>
+            <small>Informatique &amp; Digital</small>
+            <div class="tags"><span class="tag">Stage</span><span class="tag">Data</span><span class="tag">IA</span></div>
+            <div class="offer-meta"><i class="bi bi-geo-alt"></i>Marrakech</div>
+          </div>
+          <i class="bi bi-chevron-right arrow"></i>
+        </a>
+
+        <a class="offer" href="{{ url_for('opportunites') }}">
+          <div class="offer-logo">PI</div>
+          <div class="offer-body">
+            <h3>Pluriel Informatique et Communication</h3>
+            <small>Informatique &amp; Digital</small>
+            <div class="tags"><span class="tag">Stage</span><span class="tag">IT</span><span class="tag">Développement</span></div>
+            <div class="offer-meta"><i class="bi bi-geo-alt"></i>Marrakech</div>
+          </div>
+          <i class="bi bi-chevron-right arrow"></i>
+        </a>
+
+        <a class="offer" href="{{ url_for('opportunites') }}">
+          <div class="offer-logo">MC</div>
+          <div class="offer-body">
+            <h3>Marketing Concept 2020</h3>
+            <small>Marketing &amp; Communication</small>
+            <div class="tags"><span class="tag">Stage</span><span class="tag">Analyse</span></div>
+            <div class="offer-meta"><i class="bi bi-geo-alt"></i>Marrakech</div>
+          </div>
+          <i class="bi bi-chevron-right arrow"></i>
+        </a>
+      </div>
+    </section>
+
+    <!-- Carte + appel à l'action -->
+    <aside>
+      <div class="card">
+        <div class="sec-h">
+          <h2 style="font-size:17px"><i class="bi bi-geo-alt sec-icon"></i>Explorer sur la carte</h2>
+          <a href="{{ url_for('entreprises') }}">Voir</a>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="legend">
+          <span><i class="dot" style="background:#4f5be8"></i>Stages</span>
+          <span><i class="dot" style="background:#22a06b"></i>Opportunités</span>
+          <span><i class="dot" style="background:#a855c7"></i>Entreprises</span>
+        </div>
+      </div>
+
+      <div class="cta">
+        {% if current_user.is_authenticated %}
+          <h3>Content de te revoir !</h3>
+          <p>Retrouve tes candidatures et ton activité dans ton dashboard.</p>
+          <a href="{{ url_for('dashboard') }}" class="btn">Ouvrir mon dashboard</a>
+        {% else %}
+          <h3>Votre avenir commence ici !</h3>
+          <p>Rejoignez la plateforme et ne manquez plus aucune opportunité.</p>
+          <a href="{{ url_for('inscription') }}" class="btn">Créer un compte</a>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+
+  <!-- Statistiques -->
+  <section class="facts">
+    <div class="card"><b>+{{ nb_entreprises|default(146) }}</b><span>entreprises référencées</span></div>
+    <div class="card"><b>+{{ nb_opportunites|default(61) }}</b><span>opportunités prioritaires</span></div>
+    <div class="card"><b>Marrakech</b><span>et ses environs</span></div>
+  </section>
+
+  <footer class="home-footer">
+    <span>Marrakech Career Finder · Plus qu'un site, une passerelle vers votre avenir.</span>
+    <nav>
+      <a href="{{ url_for('accueil') }}">Accueil</a>
+      <a href="{{ url_for('entreprises') }}">Entreprises</a>
+      <a href="{{ url_for('opportunites') }}">Opportunités</a>
+      <a href="{{ url_for('contacts') }}">Contact</a>
+      <a href="{{ url_for('assistant_ia') }}">Assistant IA</a>
+    </nav>
+  </footer>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('map', {scrollWheelZoom: false}).setView([31.6295, -7.9811], 12);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  [
+    [31.64, -8.01, '#4f5be8'],
+    [31.62, -7.99, '#22a06b'],
+    [31.65, -7.96, '#a855c7'],
+    [31.61, -8.03, '#4f5be8'],
+    [31.63, -7.94, '#22a06b']
+  ].forEach(p => {
+    L.circleMarker([p[0], p[1]], {
+      radius: 9, color: '#fff', weight: 2, fillColor: p[2], fillOpacity: 1
+    }).addTo(map);
+  });
+</script>
+{% endblock %}

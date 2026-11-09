@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}{{ titre }} — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <style>
+    /* ---------- Bouton cœur (favoris) ---------- */
+    .btn-fav {
+      background: none; border: none; cursor: pointer; padding: 4px;
+      font-size: 1.3rem; line-height: 1; color: #9ca3af; flex-shrink: 0;
+      transition: transform .15s, color .15s;
+    }
+    .btn-fav:hover { transform: scale(1.2); color: #e11d48; }
+    .btn-fav.actif { color: #e11d48; }
+    .vide-favoris { text-align: center; padding: 40px 0; color: #6b7280; }
+
+    /* ---------- Cartes de même hauteur dans une ligne ---------- */
+    .cards-grid { align-items: stretch; }
+
+    /* ---------- Carte entreprise structurée ---------- */
+    .ent-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; box-sizing: border-box; }
+    .ent-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .ent-card .company-name { margin: 0; font-size: 1.02rem; font-weight: 800; line-height: 1.25; }
+    .ent-sous { margin: 4px 0 0; font-size: .82rem; color: #7a74a3; }
+
+    .ent-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .ent-score { font-size: .78rem; font-weight: 700; color: #7a74a3; }
+
+    .ent-infos {
+      list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px solid #eeebfb;
+      display: grid; gap: 8px; font-size: .86rem;
+    }
+    .ent-infos li { display: flex; align-items: flex-start; gap: 8px; word-break: break-word; }
+    .ent-infos i { color: #7c6cd9; margin-top: 2px; flex-shrink: 0; }
+    .ent-infos .adresse {
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+
+    /* Actions toujours en bas de la carte, alignées d'une carte à l'autre */
+    .ent-actions { margin-top: auto; padding-top: 12px; border-top: 1px solid #eeebfb; display: grid; gap: 10px; }
+    .ent-actions-principales { display: flex; gap: 8px; }
+    .ent-actions-principales .btn {
+      flex: 1 1 0; min-width: 0; box-sizing: border-box;
+      padding-left: 10px; padding-right: 10px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      white-space: nowrap; text-align: center;
+    }
+    .ent-actions-icones { display: flex; flex-wrap: wrap; gap: 8px; }
+    .btn-icone {
+      width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 50%; border: 1.5px solid #d9d3f7; background: #fff; color: #6a5cc4;
+      font-size: 1rem; text-decoration: none; cursor: pointer; padding: 0;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .btn-icone:hover { background: #7c6cd9; border-color: #7c6cd9; color: #fff; }
+    .btn-icone.linkedin:hover { background: #0a66c2; border-color: #0a66c2; }
+  </style>
+
+  <h1 class="page-title">{{ titre }}</h1>
+  <p class="stat-label page-sub">{{ sous_titre }}</p>
+
+  <form method="GET" action="{{ request.path }}" class="filtres card">
+    <input type="text" name="mot_cle" placeholder="Rechercher une entreprise..." value="{{ mot_cle }}">
+    <select name="secteur">
+      <option value="">Tous les secteurs</option>
+      {% for s in secteurs %}<option value="{{ s }}" {% if s == secteur_selectionne %}selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+    <select name="ville">
+      <option value="">Toutes les villes</option>
+      {% for v in villes %}<option value="{{ v }}" {% if v == ville_selectionnee %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn">Rechercher</button>
+    <a href="{{ request.path }}" class="reset">Réinitialiser</a>
+    <button class="btn btn-small btn-outline" id="copier-tous" type="button">Copier tous les emails affichés</button>
+  </form>
+
+  <h2 class="section-title">Résultats (<span id="nb-resultats">{{ entreprises|length }}</span>)</h2>
+
+  {% if page_favoris and not entreprises %}
+    <p class="vide-favoris" id="vide-favoris">
+      Tu n'as pas encore de favoris. Clique sur le cœur d'une entreprise pour la garder de côté.
+    </p>
+  {% endif %}
+
+  <div class="cards-grid">
+    {% for e in entreprises %}
+    <div class="company-card card ent-card" data-email="{{ e['email'] }}">
+
+      <!-- 1. En-tête : nom, domaine, ville, favori -->
+      <div class="ent-head">
+        <div>
+          <p class="company-name">{{ e['nom_entreprise'] }}</p>
+          <p class="ent-sous">{{ e['domaine'] or e['secteur'] }} · {{ e['ville'] }}</p>
+        </div>
+        {% if current_user.is_authenticated %}
+          <button type="button"
+                  class="btn-fav {% if e['favori'] %}actif{% endif %}"
+                  data-id="{{ e['id'] }}"
+                  title="Ajouter / retirer des favoris">
+            <i class="bi {% if e['favori'] %}bi-heart-fill{% else %}bi-heart{% endif %}"></i>
+          </button>
+        {% else %}
+          <a href="{{ url_for('connexion') }}" class="btn-fav" title="Connecte-toi pour utiliser les favoris">
+            <i class="bi bi-heart"></i>
+          </a>
+        {% endif %}
+      </div>
+
+      <!-- 2. Classification : priorité, match, score -->
+      <div class="ent-badges">
+        {% if e['priorite'] == 'Haute' %}<span class="badge badge-haute">Priorité haute</span>
+        {% elif e['priorite'] == 'Moyenne' %}<span class="badge badge-moyenne">Priorité moyenne</span>
+        {% else %}<span class="badge badge-basse">Priorité {{ e['priorite']|lower }}</span>{% endif %}
+        {% if current_user.is_authenticated and e['score_matching'] is not none %}
+          <span class="badge badge-match">{{ e['score_matching'] }}% match</span>
+        {% endif %}
+        {% if e['score_total'] is not none %}<span class="ent-score">Score {{ e['score_total']|int }}</span>{% endif %}
+      </div>
+
+      <!-- 3. Coordonnées -->
+      {% if e['adresse'] or e['telephone'] or e['email'] %}
+      <ul class="ent-infos">
+        {% if e['adresse'] %}<li><i class="bi bi-geo-alt"></i><span class="adresse">{{ e['adresse'] }}</span></li>{% endif %}
+        {% if e['telephone'] %}<li><i class="bi bi-telephone"></i><span>{{ e['telephone'] }}</span></li>{% endif %}
+        {% if e['email'] %}<li><i class="bi bi-envelope"></i><span>{{ e['email'] }}</span></li>{% endif %}
+      </ul>
+      {% endif %}
+
+      <!-- 4. Actions -->
+      <div class="ent-actions">
+        <div class="ent-actions-principales">
+          {% if current_user.is_authenticated %}
+            <a href="{{ url_for('postuler', nom_entreprise=e['nom_entreprise'], retour=request.endpoint) }}"
+               class="btn btn-small"
+               data-nom="{{ e['nom_entreprise'] }}"
+               onclick="return confirm('Postuler à ' + this.dataset.nom + ' ?');"><i class="bi bi-send"></i> Postuler</a>
+            <a href="{{ url_for('candidature', entreprise=e['nom_entreprise']) }}"
+               class="btn btn-small btn-outline"><i class="bi bi-stars"></i> Lettre IA</a>
+          {% else %}
+            <a href="{{ url_for('connexion') }}" class="btn btn-small btn-light">Connecte-toi pour postuler</a>
+          {% endif %}
+        </div>
+
+        {% if e['recherche_linkedin'] or e['email'] or e['site_web'] %}
+        <div class="ent-actions-icones">
+          {% if e['recherche_linkedin'] %}
+            <a class="btn-icone linkedin" href="{{ e['recherche_linkedin'] }}" target="_blank" rel="noopener"
+               title="Chercher sur LinkedIn" aria-label="LinkedIn"><i class="bi bi-linkedin"></i></a>
+          {% endif %}
+          {% if e['email'] %}
+            <a class="btn-icone" href="{{ e['gmail_url'] }}" target="_blank" rel="noopener"
+               title="Écrire avec Gmail" aria-label="Gmail"><i class="bi bi-envelope-at"></i></a>
+            <a class="btn-icone" href="{{ e['mailto_url'] }}"
+               title="Écrire avec ton application mail" aria-label="Mail"><i class="bi bi-envelope"></i></a>
+            <button class="btn-icone copier" type="button" data-email="{{ e['email'] }}"
+                    title="Copier l'email" aria-label="Copier l'email"><i class="bi bi-clipboard"></i></button>
+          {% endif %}
+          {% if e['site_web'] %}
+            <a class="btn-icone" href="{{ e['site_web'] }}" target="_blank" rel="noopener"
+               title="Voir le site web" aria-label="Site web"><i class="bi bi-globe"></i></a>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Copier un email (bouton rond : l'icône devient ✓ un instant)
+  function copierEmail(bouton) {
+    navigator.clipboard.writeText(bouton.dataset.email).then(() => {
+      const icone = bouton.querySelector('i');
+      icone.className = 'bi bi-check2';
+      setTimeout(() => icone.className = 'bi bi-clipboard', 1500);
+    });
+  }
+  document.querySelectorAll('.copier').forEach(b =>
+    b.addEventListener('click', () => copierEmail(b)));
+
+  document.getElementById('copier-tous').addEventListener('click', function () {
+    const emails = Array.from(document.querySelectorAll('.company-card'))
+      .map(c => c.dataset.email).filter(Boolean);
+    if (!emails.length) { return; }
+    navigator.clipboard.writeText(emails.join('; ')).then(() => {
+      const ancien = this.textContent;
+      this.textContent = emails.length + ' emails copiés ✓';
+      setTimeout(() => this.textContent = ancien, 1500);
+    });
+  });
+
+  // Cœur des favoris (sans recharger la page)
+  const SUR_PAGE_FAVORIS = {{ 'true' if page_favoris else 'false' }};
+
+  document.querySelectorAll('button.btn-fav').forEach(bouton => {
+    bouton.addEventListener('click', async () => {
+      try {
+        const reponse = await fetch('/favoris/' + bouton.dataset.id, { method: 'POST' });
+        const data = await reponse.json();
+        if (!reponse.ok) { alert(data.erreur || 'Erreur.'); return; }
+
+        const icone = bouton.querySelector('i');
+        bouton.classList.toggle('actif', data.favori);
+        icone.className = 'bi ' + (data.favori ? 'bi-heart-fill' : 'bi-heart');
+
+        // Sur la page "Mes favoris", une carte retirée disparaît
+        if (SUR_PAGE_FAVORIS && !data.favori) {
+          bouton.closest('.company-card').remove();
+          const restantes = document.querySelectorAll('.company-card').length;
+          document.getElementById('nb-resultats').textContent = restantes;
+          if (restantes === 0) { location.reload(); }
+        }
+      } catch (err) {
+        alert("Impossible de modifier le favori pour le moment.");
+      }
+    });
+  });
+</script>
+{% endblock %}

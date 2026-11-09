@@ -1,0 +1,16 @@
+{% extends "base_auth.html" %}
+{% block title %}Mot de passe oublié — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <form method="POST" class="form-card card auth-card">
+    <h1 class="auth-title">Mot de passe oublié</h1>
+    <p class="auth-sub">Saisis l'adresse email de ton compte. Si elle existe, tu recevras un lien pour choisir un nouveau mot de passe.</p>
+
+    <label class="form-label" for="email">Email</label>
+    <input id="email" type="email" name="email" placeholder="Email" required>
+
+    <button type="submit" class="btn auth-btn">Envoyer le lien</button>
+  </form>
+
+  <p class="auth-foot"><a href="{{ url_for('connexion') }}">Retour à la connexion</a></p>
+{% endblock %}

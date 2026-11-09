@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contacter — Marrakech Career Finder</title>
+<style>
+  :root { --violet:#4f46e5; --violet2:#7c3aed; --fond:#f6f7fb; --bord:#e5e7eb; --texte:#1f2937; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Arial, sans-serif; background:var(--fond); color:var(--texte); }
+  nav { background:#fff; border-bottom:1px solid var(--bord); padding:16px 48px; display:flex; align-items:center; gap:28px; flex-wrap:wrap; }
+  nav .logo { font-size:24px; font-weight:700; color:var(--violet); text-decoration:none; margin-right:10px; }
+  nav a.lien { color:#6b7280; text-decoration:none; font-size:16px; }
+  nav a.lien:hover, nav a.actif { color:var(--violet); font-weight:600; }
+  .banniere { background:linear-gradient(120deg,var(--violet),var(--violet2)); color:#fff; border-radius:22px; margin:28px auto 0; max-width:1200px; padding:44px 48px; }
+  .banniere h1 { margin:0 0 8px; font-size:40px; }
+  .banniere p { margin:0; font-size:18px; opacity:.95; }
+  main { max-width:1200px; margin:0 auto; padding:24px 16px 50px; }
+  .barre { display:flex; gap:10px; flex-wrap:wrap; margin:10px 0 14px; }
+  .barre input, .barre select { padding:12px 14px; border:1px solid var(--bord); border-radius:10px; font-size:15px; background:#fff; }
+  .barre input { flex:1; min-width:240px; }
+  .btn { background:var(--violet); color:#fff; border:0; border-radius:10px; padding:9px 14px; font-size:14px; cursor:pointer; text-decoration:none; display:inline-block; font-weight:600; }
+  .btn.sec { background:#fff; color:var(--violet); border:1px solid var(--violet); }
+  .compteur { margin:8px 0 16px; font-size:20px; font-weight:700; }
+  .grille { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:20px; }
+  .carte { background:#fff; border-radius:16px; padding:22px; box-shadow:0 1px 6px rgba(0,0,0,.07); display:flex; flex-direction:column; gap:8px; }
+  .carte h3 { margin:0; font-size:19px; }
+  .carte small { color:#6b7280; }
+  .tag { background:#eef2ff; color:var(--violet); border-radius:14px; padding:3px 10px; font-size:13px; align-self:flex-start; font-weight:600; }
+  .email { font-weight:600; word-break:break-all; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .vide { padding:30px; text-align:center; color:#6b7280; display:none; }
+</style>
+</head>
+<body>
+<nav>
+  <a class="logo" href="/">🚀 Marrakech Career Finder</a>
+  <a class="lien" href="/">Accueil</a>
+  <a class="lien" href="/entreprises">Entreprises</a>
+  <a class="lien" href="/opportunites">Opportunités</a>
+  <a class="lien actif" href="/contacts">Contacter</a>
+  <a class="lien" href="/mes-candidatures">Mes candidatures</a>
+  <a class="lien" href="/analyse">Analyse</a>
+  <a class="lien" href="/candidature">Candidature</a>
+  <a class="lien" href="/profil">Mon profil</a>
+  <a class="lien" href="/deconnexion">Déconnexion</a>
+</nav>
+
+<div class="banniere">
+  <h1>Contacter les entreprises</h1>
+  <p>Les entreprises de Marrakech avec une adresse email : envoyez votre candidature spontanée en un clic.</p>
+</div>
+
+<main>
+  <div class="barre">
+    <input id="recherche" type="search" placeholder="Rechercher une entreprise ou un email…">
+    <select id="filtre-domaine">
+      <option value="">Tous les domaines</option>
+      {% for d in domaines %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+    </select>
+    <button class="btn sec" id="copier-tous" type="button">Copier tous les emails affichés</button>
+  </div>
+  <div class="compteur">Résultats (<span id="nb">{{ entreprises|length }}</span>)</div>
+
+  <div class="grille" id="grille">
+  {% for e in entreprises %}
+    {% set sujet = "Candidature spontanée – Stage – " ~ moi.nom %}
+    {% set message = "Bonjour,\n\nJe m'appelle " ~ moi.nom ~ ", étudiant(e) en 2e année AI / Data Analyst à Marrakech. Je souhaite effectuer un stage au sein de " ~ e.nom_entreprise ~ " et vous prie de bien vouloir trouver mon CV ci-joint.\n\nJe reste disponible pour un entretien.\n\nCordialement,\n" ~ moi.nom ~ "\n" ~ moi.telephone ~ "\n" ~ moi.email %}
+    <div class="carte" data-texte="{{ (e.nom_entreprise ~ ' ' ~ e.email)|lower }}" data-domaine="{{ e.domaine }}" data-email="{{ e.email }}">
+      <h3>{{ e.nom_entreprise }}</h3>
+      <span class="tag">{{ e.domaine }}</span>
+      <small>{{ e.adresse or '' }}</small>
+      <div class="email">✉️ {{ e.email }}</div>
+      <small>📞 {{ e.telephone or '—' }}</small>
+      <div class="actions">
+        <a class="btn" target="_blank" rel="noopener"
+           href="https://mail.google.com/mail/?view=cm&fs=1&to={{ e.email|urlencode }}&su={{ sujet|urlencode }}&body={{ message|urlencode }}">Gmail</a>
+        <a class="btn sec" href="mailto:{{ e.email }}?subject={{ sujet|urlencode }}&body={{ message|urlencode }}">Mail</a>
+        <button class="btn sec copier" type="button" data-email="{{ e.email }}">Copier</button>
+        {% if e.site_web %}<a class="btn sec" target="_blank" rel="noopener" href="{{ e.site_web }}">Site</a>{% endif %}
+      </div>
+    </div>
+  {% endfor %}
+  </div>
+  <div class="vide" id="vide">Aucune entreprise ne correspond à la recherche.</div>
+</main>
+
+<script>
+  const cartes = Array.from(document.querySelectorAll('.carte'));
+  const champ = document.getElementById('recherche');
+  const filtre = document.getElementById('filtre-domaine');
+
+  function appliquer() {
+    const q = champ.value.trim().toLowerCase();
+    const d = filtre.value;
+    let n = 0;
+    cartes.forEach(c => {
+      const ok = (!q || c.dataset.texte.includes(q)) && (!d || c.dataset.domaine === d);
+      c.style.display = ok ? '' : 'none';
+      if (ok) n++;
+    });
+    document.getElementById('nb').textContent = n;
+    document.getElementById('vide').style.display = n ? 'none' : 'block';
+  }
+  champ.addEventListener('input', appliquer);
+  filtre.addEventListener('change', appliquer);
+
+  function copier(texte, bouton, libelle) {
+    navigator.clipboard.writeText(texte).then(() => {
+      const ancien = bouton.textContent;
+      bouton.textContent = libelle || 'Copié ✓';
+      setTimeout(() => bouton.textContent = ancien, 1500);
+    });
+  }
+  document.querySelectorAll('.copier').forEach(b =>
+    b.addEventListener('click', () => copier(b.dataset.email, b)));
+  document.getElementById('copier-tous').addEventListener('click', function () {
+    const emails = cartes.filter(c => c.style.display !== 'none').map(c => c.dataset.email);
+    copier(emails.join('; '), this, emails.length + ' emails copiés ✓');
+  });
+</script>
+</body>
+</html>

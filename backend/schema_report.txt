@@ -1,0 +1,205 @@
+RAPPORT DE LA BASE SQLITE
+
+Nombre de tables : 6
+
+
+============================================================
+
+TABLE : applications
+
+Nombre de lignes : 11
+
+
+STRUCTURE :
+CREATE TABLE applications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            company_id INTEGER NOT NULL,
+            statut TEXT DEFAULT 'À préparer',
+            date_candidature TEXT DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT, cv_nom TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (company_id) REFERENCES companies(id)
+        )
+
+
+COLONNES :
+- id | INTEGER | NOT NULL=0 | PRIMARY KEY=1
+- user_id | INTEGER | NOT NULL=1 | PRIMARY KEY=0
+- company_id | INTEGER | NOT NULL=1 | PRIMARY KEY=0
+- statut | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- date_candidature | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- notes | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- cv_nom | TEXT | NOT NULL=0 | PRIMARY KEY=0
+
+RELATIONS :
+(0, 0, 'companies', 'company_id', 'id', 'NO ACTION', 'NO ACTION', 'NONE')
+(1, 0, 'users', 'user_id', 'id', 'NO ACTION', 'NO ACTION', 'NONE')
+
+============================================================
+
+TABLE : assistant_messages
+
+Nombre de lignes : 14
+
+
+STRUCTURE :
+CREATE TABLE assistant_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        , fichier_nom TEXT, fichier_path TEXT, fichier_mime TEXT)
+
+
+COLONNES :
+- id | INTEGER | NOT NULL=0 | PRIMARY KEY=1
+- user_id | INTEGER | NOT NULL=1 | PRIMARY KEY=0
+- role | TEXT | NOT NULL=1 | PRIMARY KEY=0
+- content | TEXT | NOT NULL=1 | PRIMARY KEY=0
+- date_creation | TIMESTAMP | NOT NULL=0 | PRIMARY KEY=0
+- fichier_nom | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- fichier_path | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- fichier_mime | TEXT | NOT NULL=0 | PRIMARY KEY=0
+
+============================================================
+
+TABLE : companies
+
+Nombre de lignes : 217
+
+
+STRUCTURE :
+CREATE TABLE companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nom_entreprise TEXT NOT NULL,
+            secteur TEXT,
+            domaine TEXT,
+            titre_poste TEXT,
+            type_source TEXT,
+            adresse TEXT,
+            ville TEXT,
+            note_entreprise REAL,
+            nb_avis INTEGER,
+            type_contrat TEXT,
+            score_total REAL,
+            priorite TEXT,
+            statut_candidature TEXT,
+            date_contact TEXT,
+            notes_perso TEXT,
+            lien TEXT,
+            recherche_linkedin TEXT
+        , email TEXT, site_web TEXT, telephone TEXT)
+
+
+COLONNES :
+- id | INTEGER | NOT NULL=0 | PRIMARY KEY=1
+- nom_entreprise | TEXT | NOT NULL=1 | PRIMARY KEY=0
+- secteur | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- domaine | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- titre_poste | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- type_source | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- adresse | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- ville | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- note_entreprise | REAL | NOT NULL=0 | PRIMARY KEY=0
+- nb_avis | INTEGER | NOT NULL=0 | PRIMARY KEY=0
+- type_contrat | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- score_total | REAL | NOT NULL=0 | PRIMARY KEY=0
+- priorite | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- statut_candidature | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- date_contact | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- notes_perso | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- lien | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- recherche_linkedin | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- email | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- site_web | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- telephone | TEXT | NOT NULL=0 | PRIMARY KEY=0
+
+============================================================
+
+TABLE : cv
+
+Nombre de lignes : 6
+
+
+STRUCTURE :
+CREATE TABLE cv (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            nom_fichier TEXT,
+            texte_extrait TEXT,
+            email_detecte TEXT,
+            telephone_detecte TEXT,
+            date_upload TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+
+
+COLONNES :
+- id | INTEGER | NOT NULL=0 | PRIMARY KEY=1
+- user_id | INTEGER | NOT NULL=1 | PRIMARY KEY=0
+- nom_fichier | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- texte_extrait | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- email_detecte | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- telephone_detecte | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- date_upload | TEXT | NOT NULL=0 | PRIMARY KEY=0
+
+RELATIONS :
+(0, 0, 'users', 'user_id', 'id', 'NO ACTION', 'NO ACTION', 'NONE')
+
+============================================================
+
+TABLE : favorites
+
+Nombre de lignes : 1
+
+
+STRUCTURE :
+CREATE TABLE favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            company_id INTEGER NOT NULL,
+            date_ajout TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (user_id, company_id)
+        )
+
+
+COLONNES :
+- id | INTEGER | NOT NULL=0 | PRIMARY KEY=1
+- user_id | INTEGER | NOT NULL=1 | PRIMARY KEY=0
+- company_id | INTEGER | NOT NULL=1 | PRIMARY KEY=0
+- date_ajout | TIMESTAMP | NOT NULL=0 | PRIMARY KEY=0
+
+============================================================
+
+TABLE : users
+
+Nombre de lignes : 6
+
+
+STRUCTURE :
+CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nom TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            mot_de_passe TEXT NOT NULL,
+            date_creation TEXT DEFAULT CURRENT_TIMESTAMP
+        , avatar TEXT, prenom TEXT, nom_famille TEXT, telephone TEXT, date_naissance TEXT, email_verifie INTEGER DEFAULT 0, code_verif TEXT, code_expire TEXT, code_essais INTEGER DEFAULT 0)
+
+
+COLONNES :
+- id | INTEGER | NOT NULL=0 | PRIMARY KEY=1
+- nom | TEXT | NOT NULL=1 | PRIMARY KEY=0
+- email | TEXT | NOT NULL=1 | PRIMARY KEY=0
+- mot_de_passe | TEXT | NOT NULL=1 | PRIMARY KEY=0
+- date_creation | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- avatar | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- prenom | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- nom_famille | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- telephone | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- date_naissance | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- email_verifie | INTEGER | NOT NULL=0 | PRIMARY KEY=0
+- code_verif | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- code_expire | TEXT | NOT NULL=0 | PRIMARY KEY=0
+- code_essais | INTEGER | NOT NULL=0 | PRIMARY KEY=0

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Mes candidatures — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-card-checklist title-icon"></i>Mes candidatures</h1>
+  <p class="stat-label page-sub">{{ candidatures|length }} candidature(s) au total.</p>
+
+  <div class="table-card card">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Entreprise</th>
+          <th>Secteur</th>
+          <th>Ville</th>
+          <th>Date</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in candidatures %}
+        <tr>
+          <td class="td-name">{{ c['nom_entreprise'] }}</td>
+          <td>{{ c['secteur'] }}</td>
+          <td>{{ c['ville'] }}</td>
+          <td>{{ c['date_candidature'] }}</td>
+          <td>
+            <form method="POST" action="{{ url_for('changer_statut', application_id=c['id']) }}">
+              <select name="statut" class="statut-select" data-statut="{{ c['statut'] }}" onchange="this.form.submit()">
+                {% for option in ['À préparer', 'Envoyée', 'En attente', 'Entretien', 'Acceptée', 'Refusée'] %}
+                <option value="{{ option }}" {% if option == c['statut'] %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" class="vide">Aucune candidature pour le moment. Va dans Entreprises et clique sur « Postuler ».</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

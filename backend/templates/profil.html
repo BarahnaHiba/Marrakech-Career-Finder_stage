@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{{ current_user.nom }} — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-person-circle title-icon"></i>{{ current_user.nom }}</h1>
+
+  <!-- Mon avatar (en haut de la page) -->
+  <form method="POST" action="{{ url_for('changer_avatar') }}" enctype="multipart/form-data" class="form-card card avatar-card">
+    <h2 class="cv-title">Mon avatar</h2>
+
+    <div class="avatar-current">
+      <div class="avatar avatar-big">
+        {% if current_user.avatar and current_user.avatar.startswith('img:') %}
+          <img src="{{ url_for('static', filename='avatars/' ~ current_user.avatar[4:]) }}" alt="Mon avatar">
+        {% elif current_user.avatar and current_user.avatar.startswith('emoji:') %}
+          {{ current_user.avatar[6:] }}
+        {% else %}
+          {{ current_user.nom[0]|upper }}
+        {% endif %}
+      </div>
+      <p class="info-label">Avatar actuel</p>
+    </div>
+
+    <p class="form-label">Choisis un avatar</p>
+    <div class="avatar-choices">
+      {% for a in avatars %}
+        <label class="avatar-choice">
+          <input type="radio" name="avatar_preset" value="{{ a }}">
+          <span>{{ a }}</span>
+        </label>
+      {% endfor %}
+      <label class="avatar-choice">
+        <input type="radio" name="avatar_preset" value="initiale">
+        <span class="avatar-initiale">{{ current_user.nom[0]|upper }}</span>
+      </label>
+    </div>
+
+    <p class="form-label">Ou envoie ta photo (PNG, JPG ou WEBP, 2 Mo maximum)</p>
+    <input type="file" name="avatar_fichier" accept=".png,.jpg,.jpeg,.webp">
+
+    <button type="submit" class="btn">Enregistrer mon avatar</button>
+  </form>
+
+  <!-- Import du CV -->
+  <form method="POST" enctype="multipart/form-data" class="form-card card">
+    <label class="form-label" for="cv">Importer ton CV (PDF ou DOCX)</label>
+    <input id="cv" type="file" name="cv" accept=".pdf,.docx" required>
+    <button type="submit" class="btn">Analyser mon CV</button>
+  </form>
+
+  <!-- CV enregistré -->
+  {% if cv %}
+  <div class="form-card card cv-indeed">
+
+    <div class="cv-head">
+      <div>
+        <p class="cv-file">{{ cv['nom_fichier'] }}</p>
+        <p class="cv-date" id="cv-date" data-date="{{ cv['date_upload'] }}">{{ cv['date_upload'] }}</p>
+      </div>
+
+      <details class="cv-menu">
+        <summary title="Options"><i class="bi bi-three-dots"></i></summary>
+        <div class="cv-menu-list">
+          <a href="{{ url_for('voir_cv') }}" target="_blank"><i class="bi bi-eye"></i>Voir le CV</a>
+          <a href="{{ url_for('voir_cv', dl=1) }}"><i class="bi bi-download"></i>Télécharger</a>
+          <form method="POST" action="{{ url_for('supprimer_cv') }}"
+                onsubmit="return confirm('Supprimer ton CV ?');">
+            <button type="submit" class="danger"><i class="bi bi-trash"></i>Supprimer</button>
+          </form>
+        </div>
+      </details>
+    </div>
+
+    {% if cv['nom_fichier'].lower().endswith('.pdf') %}
+      <iframe class="cv-preview" src="{{ url_for('voir_cv') }}" title="Aperçu du CV"></iframe>
+    {% else %}
+      <div class="cv-nopreview">
+        <i class="bi bi-file-earmark-text"></i>
+        <p>Aperçu indisponible pour un fichier Word.<br>Clique sur le menu puis « Voir le CV ».</p>
+      </div>
+    {% endif %}
+
+    <div class="info-row">
+      <span class="info-icon"><i class="bi bi-envelope"></i></span>
+      <div>
+        <p class="info-label">Email détecté</p>
+        <p class="info-value">{{ cv['email_detecte'] or 'Non détecté' }}</p>
+      </div>
+    </div>
+
+    <div class="info-row">
+      <span class="info-icon"><i class="bi bi-telephone"></i></span>
+      <div>
+        <p class="info-label">Téléphone détecté</p>
+        <p class="info-value">{{ cv['telephone_detecte'] or 'Non détecté' }}</p>
+      </div>
+    </div>
+
+    <details class="cv-details">
+      <summary>Voir le texte extrait</summary>
+      <pre>{{ cv['texte_extrait'] }}</pre>
+    </details>
+  </div>
+  {% else %}
+  <div class="form-card card cv-nopreview">
+    <i class="bi bi-file-earmark-text"></i>
+    <p>Aucun CV enregistré pour le moment. Importe-le ci-dessus.</p>
+  </div>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Affiche « Il y a X jours » à la place de la date brute
+  const d = document.getElementById('cv-date');
+  if (d) {
+    const quand = new Date(d.dataset.date.replace(' ', 'T') + 'Z');
+    const jours = Math.floor((Date.now() - quand) / 86400000);
+    if (!isNaN(jours)) {
+      d.textContent = jours <= 0 ? "Aujourd'hui" : (jours === 1 ? "Il y a 1 jour" : "Il y a " + jours + " jours");
+    }
+  }
+</script>
+{% endblock %}

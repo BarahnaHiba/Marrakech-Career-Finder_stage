@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vérification — Marrakech Career Finder</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: #c9c0f0; font-family: 'Nunito', Arial, sans-serif; color: #2b2550;
+    }
+    .carte {
+      background: #fff; width: 100%; max-width: 430px; margin: 20px; padding: 36px 32px;
+      border-radius: 28px; box-shadow: 0 10px 40px rgba(90, 70, 180, .2); text-align: center;
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 0 0 18px; line-height: 1.5; color: #5a5480; }
+    .message {
+      background: #ece9fb; color: #4b3fa8; padding: 10px 14px; border-radius: 14px;
+      margin-bottom: 16px; font-size: 14px;
+    }
+    input[type="text"] {
+      width: 100%; padding: 16px; font-size: 28px; letter-spacing: 12px; text-align: center;
+      border: 2px solid #8b7fdc; border-radius: 40px; outline: none; background: #f4f2fd;
+    }
+    button {
+      width: 100%; margin-top: 16px; padding: 15px; font-size: 16px; font-weight: bold;
+      color: #fff; background: #8b7fdc; border: none; border-radius: 40px; cursor: pointer;
+    }
+    button:hover { background: #7a6ed0; }
+    .lien {
+      background: none; color: #6a5cc4; text-decoration: underline; margin-top: 10px;
+      font-size: 14px; font-weight: normal;
+    }
+    .lien:hover { background: none; color: #4b3fa8; }
+    .retour { display: block; margin-top: 18px; font-size: 14px; color: #6a5cc4; }
+  </style>
+</head>
+<body>
+  <div class="carte">
+    <h1>Vérifie ton email</h1>
+    <p>Nous avons envoyé un code à 6 chiffres à <strong>{{ email_masque }}</strong>.
+       Il est valable {{ duree }} minutes.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% for m in messages %}
+        <div class="message">{{ m }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('verification') }}">
+      <input type="text" name="code" maxlength="6" inputmode="numeric"
+             autocomplete="one-time-code" placeholder="000000" required autofocus>
+      <button type="submit">Valider</button>
+    </form>
+
+    <form method="POST" action="{{ url_for('renvoyer_code') }}">
+      <button type="submit" class="lien">Renvoyer le code</button>
+    </form>
+
+    <a class="retour" href="{{ url_for('connexion') }}">← Retour à la connexion</a>
+  </div>
+</body>
+</html>

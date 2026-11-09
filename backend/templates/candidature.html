@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Lettre de motivation — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-pencil-square title-icon"></i>Lettre de motivation</h1>
+  <p class="stat-label page-sub">Choisis une entreprise : l'IA rédige une lettre personnalisée avec ton CV. Relis-la, modifie-la, puis envoie-la.</p>
+
+  {% if not a_cv %}
+  <p class="flash">Importe d'abord ton CV dans <a href="{{ url_for('profil') }}">Mon profil</a> pour obtenir une lettre plus personnalisée et pouvoir l'envoyer.</p>
+  {% endif %}
+
+  <form method="POST" action="{{ url_for('candidature') }}" class="form-card card" id="form-lettre">
+    <label class="form-label" for="entreprise">Entreprise</label>
+    <select id="entreprise" name="entreprise" required>
+      <option value="" disabled {% if not choisie %}selected{% endif %}>Choisis une entreprise…</option>
+      {% for n in noms %}<option value="{{ n }}" {% if n == choisie %}selected{% endif %}>{{ n }}</option>{% endfor %}
+    </select>
+
+    <label class="form-label" for="poste">Poste visé</label>
+    <input id="poste" type="text" name="poste" placeholder="Laisse vide pour : stage en Data Analyst / Intelligence Artificielle" value="{{ poste }}">
+
+    <label class="form-label" for="ton">Ton de la lettre</label>
+    <select id="ton" name="ton">
+      {% for cle, libelle in tons.items() %}
+        <option value="{{ cle }}" {% if cle == ton %}selected{% endif %}>{{ libelle }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" class="btn" id="btn-generer">Générer la lettre avec l'IA</button>
+  </form>
+
+  {% if message %}
+  <form method="POST" action="{{ url_for('envoyer_lettre') }}" class="form-card card message-card" id="form-envoi">
+    <input type="hidden" name="entreprise" value="{{ choisie }}">
+    <input type="hidden" name="poste" value="{{ poste }}">
+
+    <label class="form-label" for="msg">Ta lettre (tu peux la modifier)</label>
+    <textarea id="msg" name="lettre" rows="18">{{ message }}</textarea>
+
+    <div class="actions">
+      {% if email_ok and a_cv %}
+        <button type="submit" class="btn" id="btn-envoyer"><i class="bi bi-send"></i> Envoyer par email</button>
+      {% endif %}
+      <button type="button" class="btn btn-outline" id="btn-copier">Copier la lettre</button>
+      <button type="button" class="btn btn-outline" id="btn-telecharger">Télécharger (.txt)</button>
+    </div>
+
+    {% if email_ok and a_cv %}
+      <p class="stat-label">Ton CV sera joint automatiquement à l'email.
+        {% if not mode_reel %}<strong>Mode test :</strong> l'email sera envoyé à ta propre adresse, pas à l'entreprise.{% endif %}</p>
+    {% elif not email_ok %}
+      <p class="stat-label">Cette entreprise n'a pas d'adresse email : copie la lettre et contacte-la via LinkedIn, son site ou par téléphone.</p>
+    {% else %}
+      <p class="stat-label">Importe ton CV dans Mon profil pour pouvoir envoyer la lettre par email.</p>
+    {% endif %}
+    <p class="stat-label">Lettre générée par une IA : relis-la toujours avant de l'envoyer.</p>
+  </form>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Pendant la génération (quelques secondes), on désactive le bouton
+  const formulaire = document.getElementById('form-lettre');
+  const boutonGenerer = document.getElementById('btn-generer');
+  if (formulaire) {
+    formulaire.addEventListener('submit', function () {
+      boutonGenerer.disabled = true;
+      boutonGenerer.textContent = 'Génération en cours…';
+    });
+  }
+
+  // Envoi : confirmation, puis le bouton se désactive pour éviter un double envoi
+  const formulaireEnvoi = document.getElementById('form-envoi');
+  const boutonEnvoyer = document.getElementById('btn-envoyer');
+  if (formulaireEnvoi && boutonEnvoyer) {
+    formulaireEnvoi.addEventListener('submit', function (e) {
+      const nom = document.getElementById('entreprise').value || 'cette entreprise';
+      if (!confirm('Envoyer cette lettre à ' + nom + ' ?')) {
+        e.preventDefault();
+        return;
+      }
+      boutonEnvoyer.disabled = true;
+      boutonEnvoyer.textContent = 'Envoi en cours…';
+    });
+  }
+
+  const boutonCopier = document.getElementById('btn-copier');
+  if (boutonCopier) {
+    boutonCopier.addEventListener('click', function () {
+      navigator.clipboard.writeText(document.getElementById('msg').value).then(() => {
+        const ancien = boutonCopier.textContent;
+        boutonCopier.textContent = 'Copié ✓';
+        setTimeout(() => boutonCopier.textContent = ancien, 1500);
+      });
+    });
+  }
+
+  const boutonTelecharger = document.getElementById('btn-telecharger');
+  if (boutonTelecharger) {
+    boutonTelecharger.addEventListener('click', function () {
+      const texte = document.getElementById('msg').value;
+      const entreprise = (document.getElementById('entreprise').value || 'entreprise').replace(/[^\w]+/g, '_');
+      const lien = document.createElement('a');
+      lien.href = URL.createObjectURL(new Blob([texte], { type: 'text/plain;charset=utf-8' }));
+      lien.download = 'lettre_motivation_' + entreprise + '.txt';
+      lien.click();
+      URL.revokeObjectURL(lien.href);
+    });
+  }
+</script>
+{% endblock %}

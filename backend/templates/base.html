@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Marrakech Career Finder{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
+  <style>
+    .assistant-fab {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #a78bfa, #7c6cd9);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      text-decoration: none;
+      box-shadow: 0 8px 20px rgba(124, 108, 217, 0.45);
+      z-index: 1000;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .assistant-fab:hover {
+      transform: scale(1.1);
+      box-shadow: 0 10px 26px rgba(124, 108, 217, 0.6);
+      color: #fff;
+    }
+
+    /* ---------- Bouton « Mes informations » en haut à droite ---------- */
+    .user-menu {
+      position: fixed;
+      top: 18px;
+      right: 34px;
+      z-index: 1100;
+      font-family: 'Nunito', Arial, sans-serif;
+    }
+    .user-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px 5px 5px;
+      border: none;
+      border-radius: 40px;
+      background: #ffffff;
+      color: #4b3fa8;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(90, 70, 180, 0.25);
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .user-btn:hover { box-shadow: 0 6px 22px rgba(90, 70, 180, 0.4); transform: translateY(-1px); }
+    .user-btn .bi-chevron-down { font-size: 13px; transition: transform 0.2s ease; }
+    .user-btn[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
+
+    .user-avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #a78bfa, #7c6cd9);
+      color: #fff; font-weight: 800; font-size: 18px; overflow: hidden;
+    }
+    .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .user-avatar.grand { width: 72px; height: 72px; font-size: 34px; margin: 0 auto 10px; }
+
+    .user-panel {
+      position: absolute;
+      top: 54px;
+      right: 0;
+      width: 340px;
+      max-width: calc(100vw - 40px);
+      max-height: calc(100vh - 90px);
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 22px;
+      padding: 22px 20px 18px;
+      box-shadow: 0 14px 44px rgba(60, 40, 150, 0.3);
+      color: #2b2550;
+    }
+    .user-panel[hidden] { display: none; }
+    .user-panel [hidden] { display: none !important; }
+    .user-panel .panel-nom { text-align: center; font-size: 19px; font-weight: 800; margin: 0 0 16px; }
+    .user-ligne {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px; margin-bottom: 8px;
+      background: #f1eefc; border-radius: 16px;
+    }
+    .user-ligne i { color: #7c6cd9; font-size: 18px; }
+    .user-ligne .etiquette { margin: 0; font-size: 12px; color: #7a74a3; font-weight: 700; }
+    .user-ligne .valeur { margin: 0; font-size: 14.5px; font-weight: 700; word-break: break-all; }
+    .pastille { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 20px; font-size: 11px; font-weight: 800; }
+    .pastille.oui { background: #dff5e6; color: #1d7a3e; }
+    .pastille.non { background: #fdeccc; color: #9a6200; }
+
+    .user-actions { display: grid; gap: 8px; margin-top: 14px; }
+    .user-actions a, .user-actions button {
+      display: block; width: 100%; text-align: center; padding: 11px; border-radius: 30px;
+      font-weight: 800; font-size: 14px; text-decoration: none; border: none; cursor: pointer;
+      font-family: inherit;
+    }
+    .user-actions .modifier { background: linear-gradient(135deg, #a78bfa, #7c6cd9); color: #fff; }
+    .user-actions .deconnexion { background: #f1eefc; color: #6a5cc4; }
+    .user-actions .annuler { background: #f1eefc; color: #6a5cc4; }
+
+    /* Formulaire de modification dans le panneau */
+    .user-form label { display: block; margin: 10px 0 5px; font-size: 12px; font-weight: 800; color: #7a74a3; }
+    .user-form input {
+      width: 100%; padding: 11px 16px; font-size: 14.5px; font-family: inherit;
+      border: 2px solid transparent; border-radius: 30px; background: #eeebfb; color: #2b2550; outline: none;
+    }
+    .user-form input:focus { border-color: #8b7fdc; background: #fff; }
+    .user-form input:disabled { opacity: .65; cursor: not-allowed; }
+    .user-mdp { margin-top: 16px; }
+    .user-mdp summary { cursor: pointer; font-weight: 800; font-size: 14px; color: #6a5cc4; }
+    .user-mdp .user-form input { margin-bottom: 2px; }
+
+    @media (max-width: 700px) { .user-menu { right: 14px; top: 12px; } }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  {% if current_user.is_authenticated and infos_user %}
+  <!-- Bouton « Mes informations » (haut à droite) -->
+  <div class="user-menu" id="user-menu">
+    <button type="button" class="user-btn" id="user-btn" aria-haspopup="true" aria-expanded="false" title="Mes informations">
+      <span class="user-avatar">
+        {% if current_user.avatar and current_user.avatar.startswith('img:') %}
+          <img src="{{ url_for('static', filename='avatars/' ~ current_user.avatar[4:]) }}" alt="Avatar">
+        {% elif current_user.avatar and current_user.avatar.startswith('emoji:') %}
+          {{ current_user.avatar[6:] }}
+        {% else %}
+          {{ current_user.nom[0]|upper }}
+        {% endif %}
+      </span>
+      <i class="bi bi-chevron-down"></i>
+    </button>
+
+    <div class="user-panel" id="user-panel" hidden>
+      <div class="user-avatar grand">
+        {% if current_user.avatar and current_user.avatar.startswith('img:') %}
+          <img src="{{ url_for('static', filename='avatars/' ~ current_user.avatar[4:]) }}" alt="Avatar">
+        {% elif current_user.avatar and current_user.avatar.startswith('emoji:') %}
+          {{ current_user.avatar[6:] }}
+        {% else %}
+          {{ current_user.nom[0]|upper }}
+        {% endif %}
+      </div>
+      <p class="panel-nom">{{ current_user.nom }}</p>
+
+      <!-- Mode affichage -->
+      <div id="vue-infos">
+        <div class="user-ligne">
+          <i class="bi bi-person"></i>
+          <div>
+            <p class="etiquette">Prénom et nom</p>
+            <p class="valeur">{{ infos_user.prenom or '—' }} {{ infos_user.nom_famille or '' }}</p>
+          </div>
+        </div>
+
+        <div class="user-ligne">
+          <i class="bi bi-telephone"></i>
+          <div>
+            <p class="etiquette">Téléphone</p>
+            <p class="valeur">{{ infos_user.telephone or '—' }}</p>
+          </div>
+        </div>
+
+        <div class="user-ligne">
+          <i class="bi bi-envelope"></i>
+          <div>
+            <p class="etiquette">
+              Email
+              {% if infos_user.email_verifie %}
+                <span class="pastille oui">✓ Vérifié</span>
+              {% else %}
+                <span class="pastille non">Non vérifié</span>
+              {% endif %}
+            </p>
+            <p class="valeur">{{ infos_user.email }}</p>
+          </div>
+        </div>
+
+        <div class="user-ligne">
+          <i class="bi bi-calendar-event"></i>
+          <div>
+            <p class="etiquette">Date de naissance</p>
+            <p class="valeur">{{ infos_user.date_naissance_affichee or '—' }}</p>
+          </div>
+        </div>
+
+        <div class="user-actions">
+          <button type="button" class="modifier" id="btn-modifier"><i class="bi bi-pencil-square"></i> Modifier mes informations</button>
+          <a href="{{ url_for('deconnexion') }}" class="deconnexion"><i class="bi bi-box-arrow-right"></i> Déconnexion</a>
+        </div>
+      </div>
+
+      <!-- Mode modification -->
+      <div id="vue-edition" hidden>
+        <form method="POST" action="{{ url_for('modifier_infos') }}" class="user-form">
+          <label for="u-prenom">Prénom</label>
+          <input id="u-prenom" type="text" name="prenom" value="{{ infos_user.prenom or '' }}" required>
+
+          <label for="u-nom">Nom</label>
+          <input id="u-nom" type="text" name="nom_famille" value="{{ infos_user.nom_famille or '' }}" required>
+
+          <label for="u-tel">Numéro de téléphone</label>
+          <input id="u-tel" type="tel" name="telephone" value="{{ infos_user.telephone or '' }}" required>
+
+          <label for="u-date">Date de naissance</label>
+          <input id="u-date" type="date" name="date_naissance" value="{{ infos_user.date_naissance or '' }}" required>
+
+          <label for="u-email">Email (non modifiable)</label>
+          <input id="u-email" type="email" value="{{ infos_user.email }}" disabled>
+
+          <div class="user-actions">
+            <button type="submit" class="modifier"><i class="bi bi-check2"></i> Enregistrer</button>
+            <button type="button" class="annuler" id="btn-annuler">Annuler</button>
+          </div>
+        </form>
+
+        <details class="user-mdp">
+          <summary>Changer mon mot de passe</summary>
+          <form method="POST" action="{{ url_for('changer_mot_de_passe') }}" class="user-form">
+            <label for="u-ancien">Mot de passe actuel</label>
+            <input id="u-ancien" type="password" name="ancien" required>
+
+            <label for="u-nouveau">Nouveau mot de passe</label>
+            <input id="u-nouveau" type="password" name="nouveau" required>
+
+            <label for="u-conf">Confirmer le nouveau mot de passe</label>
+            <input id="u-conf" type="password" name="confirmation" required>
+
+            <div class="user-actions">
+              <button type="submit" class="modifier">Changer le mot de passe</button>
+            </div>
+          </form>
+        </details>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="app">
+    {% include "_sidebar.html" %}
+
+    <main class="main">
+      {% with messages = get_flashed_messages() %}
+        {% for m in messages %}<p class="flash">{{ m }}</p>{% endfor %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% if request.endpoint != 'assistant_ia' %}
+    <a href="{{ url_for('assistant_ia') }}" class="assistant-fab" title="Assistant IA" aria-label="Assistant IA">
+      <i class="bi bi-stars"></i>
+    </a>
+  {% endif %}
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script>
+    // Ouvre / ferme le panneau « Mes informations » et bascule affichage / modification
+    (function () {
+      const bouton = document.getElementById('user-btn');
+      const panneau = document.getElementById('user-panel');
+      if (!bouton || !panneau) return;
+
+      const vueInfos = document.getElementById('vue-infos');
+      const vueEdition = document.getElementById('vue-edition');
+
+      function afficherInfos() { vueEdition.hidden = true; vueInfos.hidden = false; }
+      function fermer() { panneau.hidden = true; bouton.setAttribute('aria-expanded', 'false'); afficherInfos(); }
+
+      bouton.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const ouvrir = panneau.hidden;
+        panneau.hidden = !ouvrir;
+        bouton.setAttribute('aria-expanded', ouvrir ? 'true' : 'false');
+        if (!ouvrir) afficherInfos();
+      });
+
+      document.getElementById('btn-modifier').addEventListener('click', function () {
+        vueInfos.hidden = true; vueEdition.hidden = false;
+      });
+      document.getElementById('btn-annuler').addEventListener('click', afficherInfos);
+
+      panneau.addEventListener('click', function (e) { e.stopPropagation(); });
+      document.addEventListener('click', fermer);
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fermer(); });
+    })();
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

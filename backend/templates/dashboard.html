@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-grid-1x2 title-icon"></i>Mon Dashboard</h1>
+  <p class="stat-label page-sub">Toutes tes fonctionnalités et ton activité au même endroit.</p>
+
+  <h2 class="section-title">Mes fonctionnalités</h2>
+  <section class="module-grid">
+
+    <a href="{{ url_for('entreprises') }}" class="module-card" style="--tint:var(--violet-100)">
+      <span class="module-icon"><i class="bi bi-buildings"></i></span>
+      <h3>Entreprises</h3>
+      <p>Découvre les entreprises de Marrakech, triées par pertinence.</p>
+    </a>
+
+    <a href="{{ url_for('opportunites') }}" class="module-card" style="--tint:#dff5ea">
+      <span class="module-icon"><i class="bi bi-briefcase"></i></span>
+      <h3>Opportunités</h3>
+      <p>Les entreprises de priorité Haute à contacter en premier.</p>
+    </a>
+
+    <a href="{{ url_for('contacts') }}" class="module-card" style="--tint:var(--blue-100)">
+      <span class="module-icon"><i class="bi bi-people"></i></span>
+      <h3>Contacts</h3>
+      <p>Emails et téléphones, avec Gmail en un clic.</p>
+    </a>
+
+    <a href="{{ url_for('candidature') }}" class="module-card" style="--tint:var(--pink-100)">
+      <span class="module-icon"><i class="bi bi-pencil-square"></i></span>
+      <h3>Candidature</h3>
+      <p>Génère un message de candidature spontanée.</p>
+    </a>
+
+    <a href="{{ url_for('mes_candidatures') }}" class="module-card" style="--tint:var(--yellow-100)">
+      <span class="module-icon"><i class="bi bi-card-checklist"></i></span>
+      <h3>Mes candidatures</h3>
+      <p>Suis le statut de chaque candidature envoyée.</p>
+      <span class="module-count">{{ total_candidatures }} au total</span>
+    </a>
+
+    <a href="{{ url_for('analyse') }}" class="module-card" style="--tint:#e3ecfa">
+      <span class="module-icon"><i class="bi bi-bar-chart-line"></i></span>
+      <h3>Analyse</h3>
+      <p>Tendances, scores et répartition par secteur.</p>
+    </a>
+
+    <a href="{{ url_for('assistant_ia') }}" class="module-card" style="--tint:#ece0fa">
+      <span class="module-icon"><i class="bi bi-stars"></i></span>
+      <h3>Assistant IA</h3>
+      <p>Pose tes questions à l'assistant.</p>
+    </a>
+
+    <a href="{{ url_for('profil') }}" class="module-card" style="--tint:#fde9d9">
+      <span class="module-icon"><i class="bi bi-person-gear"></i></span>
+      <h3>Mon profil</h3>
+      <p>Importe ton CV pour activer le matching.</p>
+    </a>
+
+  </section>
+
+  <h2 class="section-title">Mon activité</h2>
+  <section class="stats-row">
+    <div class="card">
+      <div class="stat-number">{{ total_candidatures }}</div>
+      <div class="stat-label">Candidatures totales</div>
+    </div>
+    <div class="card">
+      <div class="stat-number">{{ total_entretiens }}</div>
+      <div class="stat-label">Entretiens obtenus</div>
+    </div>
+  </section>
+
+  <section class="charts-row">
+    <div class="card">
+      <h3 class="card-title">Candidatures par statut</h3>
+      <canvas id="graphStatut"></canvas>
+    </div>
+    <div class="card">
+      <h3 class="card-title">Candidatures par secteur</h3>
+      <canvas id="graphSecteur"></canvas>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  new Chart(document.getElementById('graphStatut'), {
+    type: 'pie',
+    data: {
+      labels: {{ statuts_labels | tojson }},
+      datasets: [{
+        data: {{ statuts_valeurs | tojson }},
+        backgroundColor: ['#7c6bd6', '#a898ee', '#f6c453', '#7fd1a8', '#f08a9b', '#7aa7e6']
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  new Chart(document.getElementById('graphSecteur'), {
+    type: 'bar',
+    data: {
+      labels: {{ secteurs_labels | tojson }},
+      datasets: [{
+        label: 'Nombre de candidatures',
+        data: {{ secteurs_valeurs | tojson }},
+        backgroundColor: '#a898ee',
+        borderRadius: 10
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+</script>
+{% endblock %}

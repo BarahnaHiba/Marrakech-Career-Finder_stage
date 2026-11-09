@@ -1,0 +1,35 @@
+{% extends "base_auth.html" %}
+{% block title %}Inscription — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  {% set v = valeurs or {} %}
+  <form method="POST" class="form-card card auth-card" autocomplete="off">
+    <h1 class="auth-title">Crée ton compte</h1>
+    <p class="auth-sub">Rejoins la plateforme et trouve ton stage idéal à Marrakech.</p>
+
+    <label class="form-label" for="prenom">Prénom</label>
+    <input id="prenom" type="text" name="prenom" placeholder="Prénom" value="{{ v.prenom or '' }}" autocomplete="off" required>
+
+    <label class="form-label" for="nom_famille">Nom</label>
+    <input id="nom_famille" type="text" name="nom_famille" placeholder="Nom" value="{{ v.nom_famille or '' }}" autocomplete="off" required>
+
+    <label class="form-label" for="telephone">Numéro de téléphone</label>
+    <input id="telephone" type="tel" name="telephone" placeholder="06 12 34 56 78" value="{{ v.telephone or '' }}" autocomplete="off" required>
+
+    <label class="form-label" for="email">Email</label>
+    <input id="email" type="email" name="email" placeholder="Email" value="{{ v.email or '' }}" autocomplete="off" required>
+
+    <label class="form-label" for="date_naissance">Date de naissance</label>
+    <input id="date_naissance" type="date" name="date_naissance" value="{{ v.date_naissance or '' }}" autocomplete="off" required>
+
+    <label class="form-label" for="mot_de_passe">Mot de passe ({{ mdp_min }} caractères minimum)</label>
+    <input id="mot_de_passe" type="password" name="mot_de_passe" placeholder="Mot de passe" minlength="{{ mdp_min }}" autocomplete="new-password" required>
+
+    <label class="form-label" for="confirmation">Confirmer le mot de passe</label>
+    <input id="confirmation" type="password" name="confirmation" placeholder="Confirmer le mot de passe" minlength="{{ mdp_min }}" autocomplete="new-password" required>
+
+    <button type="submit" class="btn auth-btn">S'inscrire</button>
+  </form>
+
+  <p class="auth-foot">Déjà un compte ? <a href="{{ url_for('connexion') }}">Se connecter</a></p>
+{% endblock %}

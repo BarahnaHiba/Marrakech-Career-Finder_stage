@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Marrakech Career Finder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+</head>
+<body>
+    {% include '_navbar.html' %}
+    {% with messages = get_flashed_messages() %}{% for m in messages %}<p class="flash">{{ m }}</p>{% endfor %}{% endwith %}
+
+    <section class="home-hero">
+        <div class="home-hero-text">
+            <p class="kicker">Ton avenir professionnel commence ici</p>
+            <h1>Marrakech Career Finder</h1>
+            <p>Explore les entreprises, découvre les opportunités, postule facilement et construis ton avenir professionnel.</p>
+            <form method="GET" action="{{ url_for('entreprises') }}" class="home-search">
+                <input type="text" name="mot_cle" placeholder="Rechercher une entreprise, un domaine...">
+                <select name="secteur">
+                    <option value="">Tous les secteurs</option>
+                    {% for s in secteurs %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+                </select>
+                <button type="submit">Rechercher</button>
+            </form>
+            <p class="home-stats">{{ nb_entreprises }} entreprises · {{ nb_secteurs }} secteurs · données Google Maps (Places API)</p>
+        </div>
+        <img src="{{ url_for('static', filename='img/hero.png') }}" alt="Poignée de main lors d'un entretien">
+    </section>
+
+    <section class="feature-grid">
+        <a href="{{ url_for('entreprises') }}" class="feature"><span class="ico" style="background:#eef2ff">🏢</span><h3>Entreprises</h3><p>Découvre les entreprises de Marrakech et leurs coordonnées.</p></a>
+        <a href="{{ url_for('opportunites') }}" class="feature"><span class="ico" style="background:#dcfce7">💼</span><h3>Opportunités</h3><p>Trouve les opportunités prioritaires qui te correspondent.</p></a>
+        <a href="{{ url_for('mes_candidatures') }}" class="feature"><span class="ico" style="background:#fef3c7">📋</span><h3>Mes candidatures</h3><p>Suis l'avancement de tes candidatures.</p></a>
+        <a href="{{ url_for('analyse') }}" class="feature"><span class="ico" style="background:#e0f2fe">📊</span><h3>Analyse</h3><p>Explore les tendances et les statistiques.</p></a>
+        <a href="{{ url_for('candidature') }}" class="feature"><span class="ico" style="background:#fee2e2">✉️</span><h3>Candidature</h3><p>Génère un message de candidature en quelques clics.</p></a>
+        <a href="{{ url_for('profil') }}" class="feature"><span class="ico" style="background:#f3e8ff">👤</span><h3>Mon profil</h3><p>Importe ton CV et renseigne tes informations une seule fois.</p></a>
+    </section>
+</body>
+</html>

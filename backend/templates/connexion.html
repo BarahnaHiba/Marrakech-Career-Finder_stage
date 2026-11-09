@@ -1,0 +1,21 @@
+{% extends "base_auth.html" %}
+{% block title %}Connexion — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <form method="POST" class="form-card card auth-card">
+    <h1 class="auth-title">Content de te revoir</h1>
+    <p class="auth-sub">Connecte-toi pour retrouver tes candidatures et ton matching CV.</p>
+
+    <label class="form-label" for="email">Email</label>
+    <input id="email" type="email" name="email" placeholder="Email" required>
+
+    <label class="form-label" for="mot_de_passe">Mot de passe</label>
+    <input id="mot_de_passe" type="password" name="mot_de_passe" placeholder="Mot de passe" required>
+
+    <a href="{{ url_for('mot_de_passe_oublie') }}" class="auth-forgot">Mot de passe oublié ?</a>
+
+    <button type="submit" class="btn auth-btn">Se connecter</button>
+  </form>
+
+  <p class="auth-foot">Pas encore de compte ? <a href="{{ url_for('inscription') }}">S'inscrire</a></p>
+{% endblock %}

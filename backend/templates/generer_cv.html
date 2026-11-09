@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Générer mon CV — Marrakech Career Finder{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cv-feuille { background: #fff; color: #111; border-radius: 12px; padding: 34px 38px; max-width: 760px;
+                margin: 12px auto 18px; box-shadow: 0 6px 24px rgba(60, 40, 150, 0.18);
+                font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.45; }
+  .cv-feuille [contenteditable]:hover { background: #f1eefc; }
+  .cv-feuille [contenteditable]:focus { background: #ece8ff; outline: 2px solid #a78bfa; border-radius: 4px; }
+  .cv-nom { text-align: center; font-size: 26px; font-weight: 800; margin: 0; }
+  .cv-titre, .cv-contact { text-align: center; margin: 4px 0 0; }
+  .cv-contact { font-size: 13px; color: #333; }
+  .cv-section h3 { font-size: 14px; font-weight: 800; letter-spacing: .5px; margin: 18px 0 6px;
+                   padding-bottom: 3px; border-bottom: 1.5px solid #111; }
+  .cv-bloc { margin-bottom: 8px; }
+  .cv-entete { font-weight: 700; margin: 6px 0 0; }
+  .cv-date { margin: 0; color: #444; font-size: 13px; }
+  .cv-texte { margin: 2px 0 0; }
+  .cv-bloc ul { margin: 3px 0 0; padding-left: 20px; }
+</style>
+{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-file-earmark-person title-icon"></i>Générer mon CV avec l'IA</h1>
+  <p class="stat-label page-sub">Envoie ton CV (PDF, Word ou photo) : l'IA le réécrit au format ATS, sans rien inventer. Ton nom, ton téléphone et ton email sont ajoutés automatiquement.</p>
+
+  <form method="POST" action="{{ url_for('generer_cv') }}" enctype="multipart/form-data" class="form-card card" id="form-cv">
+    <label class="form-label" for="fichier">Ton CV actuel (PDF, Word, TXT, ou photo / capture)</label>
+    <input id="fichier" type="file" name="fichier" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp">
+    <p class="stat-label">
+      {% if a_cv_profil %}Sans fichier, l'IA utilise le CV déjà importé dans ton profil.
+      {% else %}Aucun CV dans ton profil : joins un fichier.{% endif %}
+    </p>
+
+    <button type="submit" class="btn" id="btn-generer-cv">Générer mon CV avec l'IA</button>
+  </form>
+
+  {% if cv %}
+  <form method="POST" action="{{ url_for('telecharger_cv_genere') }}" class="form-card card message-card" id="form-pdf">
+    <input type="hidden" name="cv_json" id="cv-json">
+    <p class="stat-label">Clique sur n'importe quel texte du CV pour le corriger directement.</p>
+
+    <div class="cv-feuille" id="cv-feuille">
+      <h2 class="cv-nom" contenteditable="true">{{ cv.nom }}</h2>
+      {% if cv.titre %}<p class="cv-titre" contenteditable="true">{{ cv.titre }}</p>{% endif %}
+      <p class="cv-contact" contenteditable="true">{{ cv.contact|join('  |  ') }}</p>
+
+      {% for s in cv.sections %}
+      <section class="cv-section">
+        <h3 contenteditable="true">{{ s.titre }}</h3>
+        {% for b in s.blocs %}
+        <div class="cv-bloc">
+          {% if b.entete %}<p class="cv-entete f-entete" contenteditable="true">{{ b.entete }}</p>{% endif %}
+          {% if b.date %}<p class="cv-date f-date" contenteditable="true">{{ b.date }}</p>{% endif %}
+          {% if b.texte %}<p class="cv-texte f-texte" contenteditable="true">{{ b.texte }}</p>{% endif %}
+          {% if b.puces %}
+          <ul>{% for p in b.puces %}<li contenteditable="true">{{ p }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endfor %}
+    </div>
+
+    <div class="actions">
+      <button type="submit" class="btn"><i class="bi bi-download"></i> Télécharger en PDF (format ATS)</button>
+    </div>
+    <p class="stat-label">Le PDF est en une colonne, avec un texte que les logiciels de recrutement peuvent lire. Pas de photo : elle n'est pas lue par les ATS.</p>
+    <p class="stat-label">CV généré par une IA : relis-le toujours et vérifie que tout est exact avant de l'envoyer.</p>
+  </form>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const formCv = document.getElementById('form-cv');
+  const btnGenererCv = document.getElementById('btn-generer-cv');
+  if (formCv) {
+    formCv.addEventListener('submit', function () {
+      btnGenererCv.disabled = true;
+      btnGenererCv.textContent = 'Génération en cours… (jusqu\'à 1 minute)';
+    });
+  }
+
+  const formPdf = document.getElementById('form-pdf');
+  if (formPdf) {
+    const lire = function (el) {
+      return el ? el.innerText.replace(/\s+/g, ' ').trim() : '';
+    };
+    formPdf.addEventListener('submit', function () {
+      const feuille = document.getElementById('cv-feuille');
+      const cv = {
+        nom: lire(feuille.querySelector('.cv-nom')),
+        titre: lire(feuille.querySelector('.cv-titre')),
+        contact: lire(feuille.querySelector('.cv-contact')).split('|').map(function (x) { return x.trim(); }).filter(Boolean),
+        sections: []
+      };
+      feuille.querySelectorAll('.cv-section').forEach(function (sec) {
+        const blocs = [];
+        sec.querySelectorAll('.cv-bloc').forEach(function (b) {
+          blocs.push({
+            entete: lire(b.querySelector('.f-entete')),
+            date: lire(b.querySelector('.f-date')),
+            texte: lire(b.querySelector('.f-texte')),
+            puces: Array.from(b.querySelectorAll('li')).map(lire).filter(Boolean)
+          });
+        });
+        cv.sections.push({ titre: lire(sec.querySelector('h3')), blocs: blocs });
+      });
+      document.getElementById('cv-json').value = JSON.stringify(cv);
+    });
+  }
+</script>
+{% endblock %}
