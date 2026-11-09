@@ -131,7 +131,7 @@
     <button type="button" class="user-btn" id="user-btn" aria-haspopup="true" aria-expanded="false" title="Mes informations">
       <span class="user-avatar">
         {% if current_user.avatar and current_user.avatar.startswith('img:') %}
-          <img src="{{ url_for('static', filename='avatars/' ~ current_user.avatar[4:]) }}" alt="Avatar">
+          <img src="{{ url_for('servir_avatar', filename=current_user.avatar[4:]) }}" alt="Avatar">
         {% elif current_user.avatar and current_user.avatar.startswith('emoji:') %}
           {{ current_user.avatar[6:] }}
         {% else %}
@@ -144,7 +144,7 @@
     <div class="user-panel" id="user-panel" hidden>
       <div class="user-avatar grand">
         {% if current_user.avatar and current_user.avatar.startswith('img:') %}
-          <img src="{{ url_for('static', filename='avatars/' ~ current_user.avatar[4:]) }}" alt="Avatar">
+          <img src="{{ url_for('servir_avatar', filename=current_user.avatar[4:]) }}" alt="Avatar">
         {% elif current_user.avatar and current_user.avatar.startswith('emoji:') %}
           {{ current_user.avatar[6:] }}
         {% else %}

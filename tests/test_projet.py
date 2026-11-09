@@ -101,7 +101,7 @@ MOTIFS_SECRETS = [r"AIza[0-9A-Za-z_\-]{30,}", r"sk-[A-Za-z0-9\-_]{20,}", r"postg
 
 
 def test_aucun_secret_dans_les_fichiers_suivis():
-    exclus = {".env", "venv", "uploads", ".git", "__pycache__", "marrakech-career-finder"}
+    exclus = {".env", ".venv", "venv", "uploads", ".git", "__pycache__", "marrakech-career-finder"}
     for f in RACINE.rglob("*"):
         if not f.is_file() or any(p in exclus for p in f.relative_to(RACINE).parts):
             continue

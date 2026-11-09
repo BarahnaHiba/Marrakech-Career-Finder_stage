@@ -1,18 +1,24 @@
+import os
+import sys
+import tempfile
+
+DOSSIER_BACKEND = os.path.dirname(os.path.abspath(__file__))
+if DOSSIER_BACKEND not in sys.path:
+    sys.path.insert(0, DOSSIER_BACKEND)
+
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from llm_service import demander_au_llm
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify, abort
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from datetime import date, datetime, timedelta
 from urllib.parse import quote
 from pathlib import Path
 import psycopg
 from psycopg.rows import dict_row
-import os
 import re
 import csv
-import sys
 import json
 import uuid
 import secrets
@@ -29,6 +35,13 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, HRFlowable
 
+DOSSIER_PROJET = os.path.dirname(DOSSIER_BACKEND)
+DOSSIER_STOCKAGE = (
+    os.path.join(tempfile.gettempdir(), "marrakech-career-finder")
+    if os.environ.get("VERCEL")
+    else DOSSIER_BACKEND
+)
+
 # Charge le fichier .env du dossier backend (clés Gemini, Gmail, Brevo, MODE_ENVOI, DATABASE_URL)
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
@@ -41,8 +54,13 @@ from cv_parser import analyser_cv
 from matching import calculer_scores_matching, analyser_matching
 from cv_parser import analyser_texte_cv
 from security import init_security, limiter_tentatives, contenu_fichier_valide, est_production
+from email_service import DUREE_CODE_MINUTES, envoyer_email_code
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    static_folder=os.path.join(DOSSIER_PROJET, "public", "static"),
+    static_url_path="/static",
+)
 # SECRET_KEY obligatoire en production, cookies sécurisés, CSRF, en-têtes HTTP, limite d'upload
 init_security(app)
 
@@ -97,14 +115,13 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
 
 # --- Réglages des comptes ---
 MOT_DE_PASSE_MIN = 6            # longueur minimale du mot de passe
-DUREE_CODE_MINUTES = 10         # durée de validité du code de vérification
 ESSAIS_MAX = 5                  # nombre d'essais avant de devoir demander un nouveau code
 DELAI_RENVOI_SECONDES = 60      # attente minimale avant de renvoyer un code
 
 # Fichier lisible dans VS Code / Excel : la liste de tous les inscrits
 CSV_INSCRITS = os.path.join(os.path.dirname(__file__), '..', 'database', 'inscrits.csv')
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+UPLOAD_FOLDER = os.path.join(DOSSIER_STOCKAGE, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 EXTENSIONS_AUTORISEES = {'pdf', 'docx'}
@@ -117,7 +134,11 @@ EMAILS_FAUX = ('email@address.com', 'example', 'exemple', 'votre@', 'votreemail'
 AVATARS_PRESET = ['👩‍💻', '👨‍💻']
 EXTENSIONS_AVATAR = {'png', 'jpg', 'jpeg', 'webp'}
 TAILLE_MAX_AVATAR = 2 * 1024 * 1024  # 2 Mo
-DOSSIER_AVATARS = os.path.join(os.path.dirname(__file__), 'static', 'avatars')
+DOSSIER_AVATARS = (
+    os.path.join(DOSSIER_STOCKAGE, "avatars")
+    if os.environ.get("VERCEL")
+    else os.path.join(DOSSIER_BACKEND, "static", "avatars")
+)
 os.makedirs(DOSSIER_AVATARS, exist_ok=True)
 
 
@@ -819,46 +840,6 @@ def envoyer_lettre():
 # =====================================================================
 
 
-def envoyer_email_code(destinataire, nom, code):
-    login = os.environ.get('BREVO_SMTP_LOGIN')
-    cle = os.environ.get('BREVO_SMTP_KEY')
-    adresse = os.environ.get('EMAIL_EXPEDITEUR')
-    if not login or not cle or not adresse:
-        raise RuntimeError("BREVO_SMTP_LOGIN, BREVO_SMTP_KEY ou EMAIL_EXPEDITEUR manque dans le fichier .env.")
-
-    msg = EmailMessage()
-    msg['Subject'] = f"Ton code de vérification : {code} — Marrakech Career Finder"
-    msg['From'] = f"Marrakech Career Finder <{adresse}>"
-    msg['To'] = destinataire
-    msg['Reply-To'] = adresse
-    msg.set_content(
-        f"Bonjour {nom},\n\n"
-        "Voici ton code pour vérifier ton compte Marrakech Career Finder :\n\n"
-        f"        {code}\n\n"
-        f"Ce code est valable {DUREE_CODE_MINUTES} minutes. "
-        "Saisis-le dans l'application pour terminer ta connexion.\n\n"
-        "Si tu n'es pas à l'origine de cette demande, ignore simplement ce message.\n\n"
-        "Marrakech Career Finder"
-    )
-    msg.add_alternative(
-        f"<p>Bonjour {nom},</p>"
-        "<p>Voici ton code pour vérifier ton compte Marrakech Career Finder :</p>"
-        f"<p style='font-size:28px;font-weight:bold;letter-spacing:6px'>{code}</p>"
-        f"<p>Ce code est valable {DUREE_CODE_MINUTES} minutes.</p>"
-        "<p>Si tu n'es pas à l'origine de cette demande, ignore ce message.</p>",
-        subtype='html'
-    )
-
-    with smtplib.SMTP('smtp-relay.brevo.com', 587, timeout=20) as serveur:
-        serveur.starttls()
-        serveur.login(login, cle)
-        refuses = serveur.send_message(msg)
-
-    if refuses:
-        raise RuntimeError(f"Adresse refusée par le serveur : {refuses}")
-    print(f"[EMAIL] Code envoyé à {destinataire} depuis {adresse}")
-
-
 # --- CODE DE VÉRIFICATION : création, enregistrement (haché) et envoi ---
 
 def init_colonnes_verification():
@@ -1004,7 +985,7 @@ def connexion():
                 except Exception as e:
                     print("Erreur envoi du code de vérification :", repr(e))
                     flash("Impossible d'envoyer le code de vérification. "
-                          "Vérifie que ton adresse email est correcte, puis réessaie.")
+                          "Vérifie la configuration email et réessaie plus tard.")
                     return redirect(url_for('connexion'))
                 session['verif_user_id'] = user_row['id']
                 flash(f"Un code à 6 chiffres vient d'être envoyé à {masquer_email(user_row['email'])}.")
@@ -1120,7 +1101,7 @@ def renvoyer_code():
         flash(f"Un nouveau code a été envoyé à {masquer_email(row['email'])}.")
     except Exception as e:
         print("Erreur renvoi du code :", repr(e))
-        flash("Impossible d'envoyer le code pour le moment. Réessaie dans un instant.")
+        flash("Impossible d'envoyer le code. Vérifie la configuration email et réessaie plus tard.")
     return redirect(url_for('verification'))
 
 
@@ -1578,6 +1559,12 @@ def changer_mot_de_passe():
     return redirect(url_for('profil'))
 
 # --- CHANGER L'AVATAR ---
+@app.route('/user-avatars/<path:filename>')
+@login_required
+def servir_avatar(filename):
+    return send_from_directory(DOSSIER_AVATARS, filename)
+
+
 @app.route('/profil/avatar', methods=['POST'])
 @login_required
 def changer_avatar():

@@ -29,7 +29,7 @@ python -m venv .venv
 # Windows : .venv\Scripts\activate      Linux/macOS : source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example backend/.env        # Windows : copy .env.example backend\.env
-# éditer backend/.env : SECRET_KEY, DATABASE_URL, GEMINI_API_KEY, GMAIL_*
+# éditer backend/.env : SECRET_KEY, DATABASE_URL, GEMINI_API_KEY et paramètres email
 python -c "import secrets; print(secrets.token_hex(32))"   # valeur pour SECRET_KEY
 python database/appliquer_migration.py database/migrations/001_harmonisation.sql
 python backend/app.py        # http://127.0.0.1:5000   (ou double-clic sur lancer.bat sous Windows)
@@ -69,10 +69,24 @@ python -m pytest tests -q
 3. Sur Render : *New + → Blueprint* → choisir le dépôt (`render.yaml`), ou *Web Service* manuel :
    - Build : `pip install -r requirements.txt`
    - Start : `gunicorn --chdir backend app:app --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT`
-   - Variables : `APP_ENV=production`, `SECRET_KEY`, `DATABASE_URL` (Neon, `sslmode=require`), `GEMINI_API_KEY`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, `MODE_ENVOI=test`
+   - Variables : `APP_ENV=production`, `SECRET_KEY`, `DATABASE_URL` (Neon, `sslmode=require`), `GEMINI_API_KEY`, `MODE_ENVOI=test` et une configuration email complète.
+     Vérification : Brevo (`BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`, adresse validée dans Brevo) ou Gmail (`GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, mot de passe d'application). Brevo est prioritaire si ses trois paramètres sont définis. Gmail reste aussi nécessaire pour les autres emails de l'application.
    - Health check : `/healthz`
 4. Appliquer la migration sur Neon (depuis ta machine, avec `DATABASE_URL` de Neon dans `backend/.env`).
 5. Tester l'URL publique : inscription → vérification email → CV → recommandations → favoris → candidature.
+
+### Déploiement Vercel
+
+1. Pousser le dépôt sur GitHub puis l'importer dans Vercel. Garder `Root Directory` sur `./` ; le projet est configuré pour le preset Flask.
+2. Dans **Settings → Environment Variables**, ajouter les variables nécessaires :
+   `APP_ENV=production`, `SECRET_KEY` (au moins 24 caractères aléatoires), `DATABASE_URL` (Neon avec `sslmode=require`),
+   `GEMINI_API_KEY`, et les variables SMTP décrites ci-dessus.
+   Pour Brevo : `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`. Gmail reste nécessaire pour les autres emails : `GMAIL_ADDRESS` et `GMAIL_APP_PASSWORD`.
+3. Laisser Vercel utiliser `requirements.txt` pour installer les dépendances, puis lancer **Deploy**.
+   `pyproject.toml` pointe vers l'application Flask et `vercel.json` configure la fonction Python.
+4. Les fichiers envoyés sont stockés temporairement dans `/tmp` sur Vercel. Ils peuvent disparaître entre deux requêtes ou déploiements ;
+   configure un stockage persistant (par exemple Vercel Blob ou S3) avant de dépendre de la consultation/téléchargement des CV et avatars.
+5. Après le déploiement, vérifier `/healthz`, l'inscription et la réception d'un code sur une vraie adresse.
 
 ### Limites à connaître en production
 
