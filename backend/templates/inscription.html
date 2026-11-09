@@ -4,6 +4,7 @@
 {% block content %}
   {% set v = valeurs or {} %}
   <form method="POST" class="form-card card auth-card" autocomplete="off">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h1 class="auth-title">Crée ton compte</h1>
     <p class="auth-sub">Rejoins la plateforme et trouve ton stage idéal à Marrakech.</p>
 

@@ -24,10 +24,12 @@
     <a href="{{ url_for('entreprises') }}" class="nav-item {{ 'active' if ep == 'entreprises' }}"><i class="bi bi-buildings"></i>Entreprises</a>
     <a href="{{ url_for('opportunites') }}" class="nav-item {{ 'active' if ep == 'opportunites' }}"><i class="bi bi-briefcase"></i>Opportunités</a>
     <a href="{{ url_for('mes_favoris') }}" class="nav-item {{ 'active' if ep == 'mes_favoris' }}"><i class="bi bi-heart"></i>Mes favoris</a>
+    <a href="{{ url_for('recommandations') }}" class="nav-item {{ 'active' if ep == 'recommandations' }}"><i class="bi bi-bullseye"></i>Recommandations</a>
     <a href="{{ url_for('candidature') }}" class="nav-item {{ 'active' if ep == 'candidature' }}"><i class="bi bi-pencil-square"></i>Candidature</a>
     <a href="{{ url_for('generer_cv') }}" class="nav-item {{ 'active' if ep == 'generer_cv' }}"><i class="bi bi-file-earmark-person"></i>Générer mon CV</a>
     <a href="{{ url_for('mes_candidatures') }}" class="nav-item {{ 'active' if ep == 'mes_candidatures' }}"><i class="bi bi-card-checklist"></i>Mes candidatures</a>
     <a href="{{ url_for('analyse') }}" class="nav-item {{ 'active' if ep == 'analyse' }}"><i class="bi bi-bar-chart-line"></i>Analyse</a>
+    <a href="{{ url_for('analyse_cv') }}" class="nav-item {{ 'active' if ep == 'analyse_cv' }}"><i class="bi bi-file-earmark-check"></i>Analyse de mon CV</a>
     <a href="{{ url_for('profil') }}" class="nav-item {{ 'active' if ep == 'profil' }}"><i class="bi bi-person-gear"></i>Mon profil</a>
   </nav>
 

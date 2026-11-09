@@ -6,6 +6,7 @@
 
   <!-- Mon avatar (en haut de la page) -->
   <form method="POST" action="{{ url_for('changer_avatar') }}" enctype="multipart/form-data" class="form-card card avatar-card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h2 class="cv-title">Mon avatar</h2>
 
     <div class="avatar-current">
@@ -43,6 +44,7 @@
 
   <!-- Import du CV -->
   <form method="POST" enctype="multipart/form-data" class="form-card card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label class="form-label" for="cv">Importer ton CV (PDF ou DOCX)</label>
     <input id="cv" type="file" name="cv" accept=".pdf,.docx" required>
     <button type="submit" class="btn">Analyser mon CV</button>
@@ -61,10 +63,12 @@
       <details class="cv-menu">
         <summary title="Options"><i class="bi bi-three-dots"></i></summary>
         <div class="cv-menu-list">
+          <a href="{{ url_for('analyse_cv') }}"><i class="bi bi-file-earmark-check"></i>Analyse &amp; conseils</a>
           <a href="{{ url_for('voir_cv') }}" target="_blank"><i class="bi bi-eye"></i>Voir le CV</a>
           <a href="{{ url_for('voir_cv', dl=1) }}"><i class="bi bi-download"></i>Télécharger</a>
           <form method="POST" action="{{ url_for('supprimer_cv') }}"
                 onsubmit="return confirm('Supprimer ton CV ?');">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="danger"><i class="bi bi-trash"></i>Supprimer</button>
           </form>
         </div>

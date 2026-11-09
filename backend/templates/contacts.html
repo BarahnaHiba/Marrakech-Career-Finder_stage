@@ -27,10 +27,11 @@
       <p class="contact-email"><i class="bi bi-envelope"></i>{{ e.email }}</p>
       <p class="company-meta"><i class="bi bi-telephone"></i>{{ e.telephone or '—' }}</p>
              {% if current_user.is_authenticated %}
-        <a class="btn btn-small"
-           href="{{ url_for('postuler', nom_entreprise=e.nom_entreprise, retour='contacts') }}"
-           data-nom="{{ e.nom_entreprise }}"
-           onclick="return confirm('Envoyer ta candidature avec ton CV à ' + this.dataset.nom + ' ?');"><i class="bi bi-send"></i>Envoyer avec mon CV</a>
+        <form method="POST" action="{{ url_for('postuler', nom_entreprise=e.nom_entreprise, retour='contacts') }}" class="form-inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-small" data-nom="{{ e.nom_entreprise }}"
+             onclick="return confirm('Envoyer ta candidature avec ton CV à ' + this.dataset.nom + ' ?');"><i class="bi bi-send"></i>Envoyer avec mon CV</button>
+        </form>
         {% endif %}
       <div class="actions">
         <a class="btn btn-small" target="_blank" rel="noopener"

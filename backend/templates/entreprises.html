@@ -111,10 +111,23 @@
         {% elif e['priorite'] == 'Moyenne' %}<span class="badge badge-moyenne">Priorité moyenne</span>
         {% else %}<span class="badge badge-basse">Priorité {{ e['priorite']|lower }}</span>{% endif %}
         {% if current_user.is_authenticated and e['score_matching'] is not none %}
-          <span class="badge badge-match">{{ e['score_matching'] }}% match</span>
+          <span class="badge badge-match" title="{{ e['matching']['explication'] if e['matching'] else '' }}">{{ e['score_matching'] }}% match</span>
         {% endif %}
         {% if e['score_total'] is not none %}<span class="ent-score">Score {{ e['score_total']|int }}</span>{% endif %}
       </div>
+
+      {% if e['matching'] and (e['matching']['competences_communes'] or e['matching']['competences_manquantes']) %}
+      <details class="match-detail">
+        <summary>Pourquoi ce score ?</summary>
+        <p class="match-niveau">Compatibilité {{ e['matching']['niveau']|lower }}</p>
+        {% if e['matching']['competences_communes'] %}
+        <p><strong>En commun :</strong> {{ e['matching']['competences_communes']|join(', ') }}</p>
+        {% endif %}
+        {% if e['matching']['competences_manquantes'] %}
+        <p><strong>À apprendre :</strong> {{ e['matching']['a_apprendre']|join(', ') }}</p>
+        {% endif %}
+      </details>
+      {% endif %}
 
       <!-- 3. Coordonnées -->
       {% if e['adresse'] or e['telephone'] or e['email'] %}
@@ -129,10 +142,11 @@
       <div class="ent-actions">
         <div class="ent-actions-principales">
           {% if current_user.is_authenticated %}
-            <a href="{{ url_for('postuler', nom_entreprise=e['nom_entreprise'], retour=request.endpoint) }}"
-               class="btn btn-small"
-               data-nom="{{ e['nom_entreprise'] }}"
-               onclick="return confirm('Postuler à ' + this.dataset.nom + ' ?');"><i class="bi bi-send"></i> Postuler</a>
+            <form method="POST" action="{{ url_for('postuler', nom_entreprise=e['nom_entreprise'], retour=request.endpoint) }}" class="form-inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-small" data-nom="{{ e['nom_entreprise'] }}"
+                 onclick="return confirm('Postuler à ' + this.dataset.nom + ' ?');"><i class="bi bi-send"></i> Postuler</button>
+            </form>
             <a href="{{ url_for('candidature', entreprise=e['nom_entreprise']) }}"
                class="btn btn-small btn-outline"><i class="bi bi-stars"></i> Lettre IA</a>
           {% else %}
@@ -196,7 +210,7 @@
   document.querySelectorAll('button.btn-fav').forEach(bouton => {
     bouton.addEventListener('click', async () => {
       try {
-        const reponse = await fetch('/favoris/' + bouton.dataset.id, { method: 'POST' });
+        const reponse = await fetch('/favoris/' + bouton.dataset.id, { method: 'POST', headers: { 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content } });
         const data = await reponse.json();
         if (!reponse.ok) { alert(data.erreur || 'Erreur.'); return; }
 

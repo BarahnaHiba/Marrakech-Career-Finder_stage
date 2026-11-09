@@ -9,6 +9,7 @@
     </div>
 
     <form method="POST">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="btn btn-small btn-outline" type="submit" name="action" value="nouvelle">
         ➕ Nouvelle conversation
       </button>
@@ -42,6 +43,7 @@
   </section>
 
   <form method="POST" class="chat-form card" id="form-question" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <textarea
       id="question"
       name="question"

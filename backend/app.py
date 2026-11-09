@@ -2,7 +2,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from llm_service import demander_au_llm
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify, abort
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from datetime import date, datetime, timedelta
 from urllib.parse import quote
@@ -36,12 +36,15 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 FORMATION = "deuxième année de formation en Intelligence Artificielle et Data Analyst"
 POSTE_VISE = "stage en Data Analyst / Intelligence Artificielle"
 
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'matching'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'matching')))
 from cv_parser import analyser_cv
-from matching import calculer_scores_matching
+from matching import calculer_scores_matching, analyser_matching
+from cv_parser import analyser_texte_cv
+from security import init_security, limiter_tentatives, contenu_fichier_valide, est_production
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'change-moi-plus-tard-avec-une-vraie-cle-secrete')
+# SECRET_KEY obligatoire en production, cookies sécurisés, CSRF, en-têtes HTTP, limite d'upload
+init_security(app)
 
 
 # =====================================================================
@@ -57,7 +60,8 @@ def get_db_connection():
 
     return psycopg.connect(
         database_url,
-        row_factory=dict_row
+        row_factory=dict_row,
+        connect_timeout=15
     )
 
 
@@ -123,7 +127,10 @@ os.makedirs(DOSSIER_AVATARS, exist_ok=True)
 
 
 def exporter_inscrits_csv():
-    """Réécrit database/inscrits.csv à partir de Neon (sans les mots de passe)."""
+    """Réécrit database/inscrits.csv à partir de Neon (sans les mots de passe).
+    Désactivé en production : données personnelles, et disque éphémère sur Render."""
+    if est_production():
+        return
     conn = get_db_connection()
     try:
         lignes = conn.execute(
@@ -176,6 +183,21 @@ TYPES_ASSISTANT = {
 TAILLE_MAX_ASSISTANT = 10 * 1024 * 1024  # 10 Mo
 DOSSIER_ASSISTANT = os.path.join(UPLOAD_FOLDER, 'assistant')
 os.makedirs(DOSSIER_ASSISTANT, exist_ok=True)
+
+# --- Statuts de candidature (liste officielle) ---
+STATUTS = ['À postuler', 'Candidature envoyée', 'Relance', 'Entretien', 'Refusé', 'Accepté', 'Abandonné']
+STATUTS_ANCIENS = {  # anciennes valeurs déjà présentes en base -> nouvelles valeurs
+    'À préparer': 'À postuler', 'Envoyée': 'Candidature envoyée', 'En attente': 'Relance',
+    'Acceptée': 'Accepté', 'Refusée': 'Refusé',
+}
+
+
+def normaliser_statut(valeur):
+    """Accepte anciens et nouveaux libellés ; renvoie toujours un statut officiel."""
+    if valeur in STATUTS:
+        return valeur
+    return STATUTS_ANCIENS.get(valeur, 'À postuler')
+
 
 def extension_autorisee(nom_fichier):
     return '.' in nom_fichier and nom_fichier.rsplit('.', 1)[1].lower() in EXTENSIONS_AUTORISEES
@@ -276,6 +298,7 @@ def get_entreprises(mot_cle='', secteur='', ville='', limit=50, user_id=None):
             f"{e['domaine'] or ''}"
         )
         e['score_matching'] = None
+        e['matching'] = None
 
     if user_id:
         conn = get_db_connection()
@@ -289,11 +312,11 @@ def get_entreprises(mot_cle='', secteur='', ville='', limit=50, user_id=None):
             conn.close()
 
         if cv_row and cv_row['texte_extrait']:
-            scores = calculer_scores_matching(
-                cv_row['texte_extrait'], entreprises
-            )
+            details = analyser_matching(cv_row['texte_extrait'], entreprises)
             for e in entreprises:
-                e['score_matching'] = scores.get(e['id'], 0)
+                d = details.get(e['id'])
+                e['matching'] = d
+                e['score_matching'] = d['score'] if d else 0
 
             entreprises.sort(
                 key=lambda e: e['score_matching'] or 0,
@@ -423,6 +446,12 @@ def liste_entreprises(titre, sous_titre, seulement_haute=False, seulement_favori
         villes=get_villes_disponibles(), mot_cle=mot_cle, secteur_selectionne=secteur,
         ville_selectionnee=ville, titre=titre, sous_titre=sous_titre,
         favoris_ids=favoris_ids, page_favoris=seulement_favoris)
+
+# --- Contrôle de santé (Render) : ne touche pas à la base ---
+@app.route('/healthz')
+def healthz():
+    return 'ok', 200, {'Content-Type': 'text/plain; charset=utf-8'}
+
 
 # --- ACCUEIL ---
 @app.route('/')
@@ -767,7 +796,7 @@ def envoyer_lettre():
     conn = get_db_connection()
     try:
         conn.execute(
-            "INSERT INTO applications (user_id, company_id, statut, cv_nom) VALUES (%s, %s, 'Envoyée', %s)",
+            "INSERT INTO applications (user_id, company_id, statut, cv_nom) VALUES (%s, %s, 'Candidature envoyée', %s)",
             (current_user.id, company['id'], cv['nom_fichier'])
         )
         conn.commit()
@@ -784,7 +813,7 @@ def envoyer_lettre():
 
 def envoyer_email_code(destinataire, nom, code):
     adresse = os.environ.get('GMAIL_ADDRESS')
-    mot_de_passe = os.environ.get('GMAIL_APP_PASSWORD')
+    mot_de_passe = (os.environ.get('GMAIL_APP_PASSWORD') or '').replace(' ', '')
     if not adresse or not mot_de_passe:
         raise RuntimeError("GMAIL_ADDRESS ou GMAIL_APP_PASSWORD manque dans le fichier .env.")
 
@@ -792,6 +821,7 @@ def envoyer_email_code(destinataire, nom, code):
     msg['Subject'] = f"Ton code de vérification : {code} — Marrakech Career Finder"
     msg['From'] = f"Marrakech Career Finder <{adresse}>"
     msg['To'] = destinataire
+    msg['Reply-To'] = adresse
     msg.set_content(
         f"Bonjour {nom},\n\n"
         "Voici ton code pour vérifier ton compte Marrakech Career Finder :\n\n"
@@ -801,9 +831,22 @@ def envoyer_email_code(destinataire, nom, code):
         "Si tu n'es pas à l'origine de cette demande, ignore simplement ce message.\n\n"
         "Marrakech Career Finder"
     )
+    msg.add_alternative(
+        f"<p>Bonjour {nom},</p>"
+        "<p>Voici ton code pour vérifier ton compte Marrakech Career Finder :</p>"
+        f"<p style='font-size:28px;font-weight:bold;letter-spacing:6px'>{code}</p>"
+        f"<p>Ce code est valable {DUREE_CODE_MINUTES} minutes.</p>"
+        "<p>Si tu n'es pas à l'origine de cette demande, ignore ce message.</p>",
+        subtype='html'
+    )
+
     with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as serveur:
         serveur.login(adresse, mot_de_passe)
-        serveur.send_message(msg)
+        refuses = serveur.send_message(msg)
+
+    if refuses:
+        raise RuntimeError(f"Adresse refusée par le serveur : {refuses}")
+    print(f"[EMAIL] Code envoyé à {destinataire} depuis {adresse}")
 
 def creer_et_envoyer_code(user_id, nom, email):
     """Génère un code à 6 chiffres, le stocke (haché) et l'envoie par email."""
@@ -818,6 +861,11 @@ def creer_et_envoyer_code(user_id, nom, email):
         conn.commit()
     finally:
         conn.close()
+
+    # Pour le développement : affiche le code dans le terminal
+    if os.environ.get('AFFICHER_CODE_TERMINAL', '0') == '1' and not est_production():
+        print(f"[DEV] Code de vérification pour {email} : {code}")
+
     envoyer_email_code(email, nom, code)
 
 def masquer_email(email):
@@ -830,6 +878,7 @@ def masquer_email(email):
 
 # --- INSCRIPTION ---
 @app.route('/inscription', methods=['GET', 'POST'])
+@limiter_tentatives(10, 300)
 def inscription():
     valeurs = {}
     if request.method == 'POST':
@@ -899,6 +948,7 @@ def inscription():
 
 # --- CONNEXION ---
 @app.route('/connexion', methods=['GET', 'POST'])
+@limiter_tentatives(10, 300)
 def connexion():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -941,6 +991,7 @@ def connexion():
 
 # --- VÉRIFICATION DE L'EMAIL (code reçu par mail, première connexion) ---
 @app.route('/verification', methods=['GET', 'POST'])
+@limiter_tentatives(10, 300)
 def verification():
     user_id = session.get('verif_user_id')
     if not user_id:
@@ -1007,6 +1058,7 @@ def verification():
                            duree=DUREE_CODE_MINUTES)
 
 @app.route('/verification/renvoyer', methods=['POST'])
+@limiter_tentatives(5, 300)
 def renvoyer_code():
     user_id = session.get('verif_user_id')
     if not user_id:
@@ -1068,7 +1120,7 @@ def lire_jeton_reinitialisation(jeton):
 
 def envoyer_email_reinitialisation(destinataire, nom, lien):
     adresse = os.environ.get('GMAIL_ADDRESS')
-    mot_de_passe = os.environ.get('GMAIL_APP_PASSWORD')
+    mot_de_passe = (os.environ.get('GMAIL_APP_PASSWORD') or '').replace(' ', '')
     if not adresse or not mot_de_passe:
         raise RuntimeError("GMAIL_ADDRESS ou GMAIL_APP_PASSWORD manque dans le fichier .env.")
 
@@ -1090,6 +1142,7 @@ def envoyer_email_reinitialisation(destinataire, nom, lien):
         serveur.send_message(msg)
 
 @app.route('/mot-de-passe-oublie', methods=['GET', 'POST'])
+@limiter_tentatives(5, 300)
 def mot_de_passe_oublie():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -1117,6 +1170,7 @@ def mot_de_passe_oublie():
     return render_template('mot_de_passe_oublie.html')
 
 @app.route('/reinitialiser/<jeton>', methods=['GET', 'POST'])
+@limiter_tentatives(10, 300)
 def reinitialiser_mot_de_passe(jeton):
     user_id = lire_jeton_reinitialisation(jeton)
     if not user_id:
@@ -1160,7 +1214,7 @@ def deconnexion():
 
 # --- POSTULER (avec envoi d'email et CV en pièce jointe) ---
 # <path:...> accepte les noms d'entreprise contenant « / »
-@app.route('/postuler/<path:nom_entreprise>')
+@app.route('/postuler/<path:nom_entreprise>', methods=['POST'])
 @login_required
 def postuler(nom_entreprise):
     # Page de retour : Opportunités / Favoris si on vient de là, sinon Entreprises
@@ -1238,14 +1292,14 @@ def postuler(nom_entreprise):
         flash("Tu as déjà postulé à cette entreprise.")
         return redirect(url_for(retour))
 
-    statut = 'À préparer'
+    statut = 'À postuler'
     if email_valide:
         try:
             envoyer(email_ent)
         except Exception as e:
             flash(f"Échec de l'envoi à {nom_entreprise} : {e}")
             return redirect(url_for(retour))
-        statut = 'Envoyée'
+        statut = 'Candidature envoyée'
 
     conn = get_db_connection()
     try:
@@ -1257,7 +1311,7 @@ def postuler(nom_entreprise):
     finally:
         conn.close()
 
-    if statut == 'Envoyée':
+    if statut == 'Candidature envoyée':
         flash(f"Candidature envoyée à {nom_entreprise} avec ton CV : {cv['nom_fichier']}.")
     else:
         flash(f"{nom_entreprise} n'a pas d'adresse email : candidature enregistrée pour le suivi "
@@ -1270,9 +1324,10 @@ def postuler(nom_entreprise):
 def mes_candidatures():
     conn = get_db_connection()
     try:
-        candidatures = conn.execute('''
+        lignes = conn.execute('''
             SELECT applications.id, companies.nom_entreprise, companies.secteur,
-                   companies.ville, applications.statut, applications.date_candidature
+                   companies.ville, applications.statut, applications.date_candidature,
+                   applications.notes
             FROM applications
             JOIN companies ON applications.company_id = companies.id
             WHERE applications.user_id = %s
@@ -1280,13 +1335,22 @@ def mes_candidatures():
         ''', (current_user.id,)).fetchall()
     finally:
         conn.close()
-    return render_template('mes_candidatures.html', candidatures=candidatures)
+    candidatures = []
+    for l in lignes:
+        c = dict(l)
+        c['statut'] = normaliser_statut(c['statut'])   # anciens libellés -> libellés officiels
+        c['date_candidature'] = formater_date(c['date_candidature'])
+        candidatures.append(c)
+    return render_template('mes_candidatures.html', candidatures=candidatures, statuts=STATUTS)
 
 # --- CHANGER LE STATUT D'UNE CANDIDATURE ---
 @app.route('/candidature/<int:application_id>/statut', methods=['POST'])
 @login_required
 def changer_statut(application_id):
-    nouveau_statut = request.form['statut']
+    nouveau_statut = request.form.get('statut', '')
+    if nouveau_statut not in STATUTS:
+        flash("Statut invalide.")
+        return redirect(url_for('mes_candidatures'))
     conn = get_db_connection()
     try:
         conn.execute(
@@ -1297,6 +1361,23 @@ def changer_statut(application_id):
     finally:
         conn.close()
     flash("Statut mis à jour.")
+    return redirect(url_for('mes_candidatures'))
+
+# --- REMARQUES SUR UNE CANDIDATURE ---
+@app.route('/candidature/<int:application_id>/notes', methods=['POST'])
+@login_required
+def changer_notes(application_id):
+    notes = request.form.get('notes', '').strip()[:2000]
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "UPDATE applications SET notes = %s WHERE id = %s AND user_id = %s",
+            (notes or None, application_id, current_user.id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    flash("Remarque enregistrée.")
     return redirect(url_for('mes_candidatures'))
 
 # --- PROFIL / UPLOAD CV ---
@@ -1318,29 +1399,57 @@ def profil():
             flash("Format non autorisé. Utilise un PDF ou un DOCX.")
             return redirect(url_for('profil'))
 
-        nom_securise = secure_filename(fichier.filename)
+        ext_cv = fichier.filename.rsplit('.', 1)[-1].lower()
+        donnees = fichier.read()
+        if not donnees:
+            flash("Le fichier est vide.")
+            return redirect(url_for('profil'))
+        if not contenu_fichier_valide(donnees, ext_cv):
+            flash("Le contenu du fichier ne correspond pas à un vrai PDF ou DOCX.")
+            return redirect(url_for('profil'))
+
+        nom_securise = secure_filename(fichier.filename) or f"cv.{ext_cv}"
         chemin_complet = os.path.join(app.config['UPLOAD_FOLDER'], f"user_{current_user.id}_{nom_securise}")
-        fichier.save(chemin_complet)
+        with open(chemin_complet, 'wb') as f_cv:
+            f_cv.write(donnees)
 
         try:
             resultat = analyser_cv(chemin_complet)
         except Exception as e:
-            flash(f"Erreur lors de l'analyse du CV : {e}")
+            print("Erreur analyse CV :", repr(e))
+            os.remove(chemin_complet)
+            flash("Impossible de lire ce CV. Vérifie que le fichier n'est pas protégé ou corrompu.")
             return redirect(url_for('profil'))
 
+        if not (resultat['texte'] or '').strip():
+            flash("Aucun texte lisible dans ce CV (PDF scanné ?). Utilise un PDF ou DOCX contenant du texte.")
+            os.remove(chemin_complet)
+            return redirect(url_for('profil'))
+
+        analyse_json = json.dumps(resultat['analyse'], ensure_ascii=False)
         conn = get_db_connection()
         try:
-            conn.execute(
-                "INSERT INTO cv (user_id, nom_fichier, texte_extrait, email_detecte, telephone_detecte) "
-                "VALUES (%s, %s, %s, %s, %s)",
-                (current_user.id, nom_securise, resultat['texte'], resultat['email'], resultat['telephone'])
-            )
+            try:
+                conn.execute(
+                    "INSERT INTO cv (user_id, nom_fichier, texte_extrait, email_detecte, telephone_detecte, analyse_json) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (current_user.id, nom_securise, resultat['texte'], resultat['email'],
+                     resultat['telephone'], analyse_json)
+                )
+            except psycopg.errors.UndefinedColumn:
+                # Migration database/migrations/001 pas encore appliquée : on enregistre sans l'analyse JSON
+                conn.rollback()
+                conn.execute(
+                    "INSERT INTO cv (user_id, nom_fichier, texte_extrait, email_detecte, telephone_detecte) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (current_user.id, nom_securise, resultat['texte'], resultat['email'], resultat['telephone'])
+                )
             conn.commit()
         finally:
             conn.close()
 
-        flash("CV analysé avec succès !")
-        return redirect(url_for('profil'))
+        flash("CV analysé avec succès ! Consulte l'analyse détaillée et les recommandations.")
+        return redirect(url_for('analyse_cv'))
 
     conn = get_db_connection()
     try:
@@ -1454,6 +1563,9 @@ def changer_avatar():
         if not donnees or len(donnees) > TAILLE_MAX_AVATAR:
             flash("Image vide ou trop lourde (2 Mo maximum).")
             return redirect(url_for('profil'))
+        if not contenu_fichier_valide(donnees, ext):
+            flash("Le contenu du fichier ne correspond pas à une vraie image PNG, JPG ou WEBP.")
+            return redirect(url_for('profil'))
         nom_fichier = f"user_{current_user.id}_{uuid.uuid4().hex}.{ext}"
         with open(os.path.join(DOSSIER_AVATARS, nom_fichier), 'wb') as f:
             f.write(donnees)
@@ -1555,7 +1667,7 @@ def envoyer_candidature_email(destinataire, nom_entreprise, poste, cv_chemin, cv
     (rédigée par l'IA puis relue par l'utilisateur) qui est envoyée.
     """
     adresse = os.environ.get('GMAIL_ADDRESS')
-    mot_de_passe = os.environ.get('GMAIL_APP_PASSWORD')
+    mot_de_passe = (os.environ.get('GMAIL_APP_PASSWORD') or '').replace(' ', '')
     if not adresse or not mot_de_passe:
         raise RuntimeError("GMAIL_ADDRESS ou GMAIL_APP_PASSWORD manque dans le fichier .env.")
 
@@ -1597,7 +1709,9 @@ def envoyer_candidature_email(destinataire, nom_entreprise, poste, cv_chemin, cv
 @app.route('/test-email')
 @login_required
 def test_email():
-    """Envoie un email de test À TOI-MÊME, avec ton CV en pièce jointe."""
+    """Envoie un email de test À TOI-MÊME, avec ton CV en pièce jointe. Développement uniquement."""
+    if est_production():
+        abort(404)
     cv = dernier_cv_utilisateur(current_user.id)
     if not cv:
         flash("Importe d'abord ton CV dans Mon profil.")
@@ -1625,25 +1739,74 @@ def test_email():
         flash(f"Échec de l'envoi : {e}")
     return redirect(url_for('profil'))
 
+# --- ANALYSE DU CV + RECOMMANDATIONS ---
+def charger_analyse_cv(user_id):
+    """Dernier CV + son analyse : JSON stocké si disponible, sinon recalculée depuis le texte extrait."""
+    conn = get_db_connection()
+    try:
+        cv = conn.execute(
+            "SELECT * FROM cv WHERE user_id = %s ORDER BY date_upload DESC LIMIT 1", (user_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not cv:
+        return None, None
+    analyse = None
+    if cv.get('analyse_json'):
+        try:
+            analyse = json.loads(cv['analyse_json'])
+        except ValueError:
+            analyse = None
+    if analyse is None and cv.get('texte_extrait'):
+        analyse = analyser_texte_cv(cv['texte_extrait'])
+    return cv, analyse
+
+
+@app.route('/mon-cv/analyse')
+@login_required
+def analyse_cv():
+    cv, analyse = charger_analyse_cv(current_user.id)
+    if not cv or not analyse:
+        flash("Importe d'abord ton CV dans Mon profil.")
+        return redirect(url_for('profil'))
+    return render_template('analyse_cv.html', cv=cv, a=analyse)
+
+
+@app.route('/recommandations')
+@login_required
+def recommandations():
+    ents = get_entreprises(limit=400, user_id=current_user.id)
+    avec_match = [e for e in ents if e.get('matching')]
+    if not avec_match:
+        flash("Importe d'abord ton CV dans Mon profil pour obtenir des recommandations.")
+        return redirect(url_for('profil'))
+    top = avec_match[:10]
+    compteur = {}
+    for e in top:
+        for c in e['matching']['competences_manquantes']:
+            compteur[c] = compteur.get(c, 0) + 1
+    a_apprendre = sorted(compteur.items(), key=lambda x: (-x[1], x[0]))[:8]
+    return render_template('recommandations.html', offres=top, a_apprendre=a_apprendre)
+
+
 # --- DASHBOARD ---
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    uid = current_user.id
     conn = get_db_connection()
     try:
         total_candidatures = conn.execute(
-            "SELECT COUNT(*) AS total FROM applications WHERE user_id = %s",
-            (current_user.id,)
+            "SELECT COUNT(*) AS total FROM applications WHERE user_id = %s", (uid,)
+        ).fetchone()['total']
+        total_entreprises = conn.execute("SELECT COUNT(*) AS total FROM companies").fetchone()['total']
+        total_favoris = conn.execute(
+            "SELECT COUNT(*) AS total FROM favorites WHERE user_id = %s", (uid,)
         ).fetchone()['total']
 
-        par_statut = conn.execute('''
-            SELECT statut, COUNT(*) AS nombre
-            FROM applications
-            WHERE user_id = %s
-            GROUP BY statut
-        ''', (current_user.id,)).fetchall()
-        statuts_labels = [row['statut'] for row in par_statut]
-        statuts_valeurs = [row['nombre'] for row in par_statut]
+        par_statut_brut = conn.execute('''
+            SELECT statut, COUNT(*) AS nombre FROM applications WHERE user_id = %s GROUP BY statut
+        ''', (uid,)).fetchall()
 
         par_secteur = conn.execute('''
             SELECT companies.secteur, COUNT(*) AS nombre
@@ -1653,25 +1816,46 @@ def dashboard():
             GROUP BY companies.secteur
             ORDER BY nombre DESC
             LIMIT 8
-        ''', (current_user.id,)).fetchall()
-        secteurs_labels = [row['secteur'] for row in par_secteur]
-        secteurs_valeurs = [row['nombre'] for row in par_secteur]
+        ''', (uid,)).fetchall()
 
-        total_entretiens = conn.execute('''
-            SELECT COUNT(*) AS total FROM applications
-            WHERE user_id = %s AND statut = 'Entretien'
-        ''', (current_user.id,)).fetchone()['total']
+        recentes = conn.execute('''
+            SELECT companies.nom_entreprise, applications.statut, applications.date_candidature
+            FROM applications JOIN companies ON applications.company_id = companies.id
+            WHERE applications.user_id = %s
+            ORDER BY applications.date_candidature DESC LIMIT 5
+        ''', (uid,)).fetchall()
     finally:
         conn.close()
+
+    # statuts anciens et nouveaux regroupés sous les libellés officiels, dans l'ordre officiel
+    comptes = {s: 0 for s in STATUTS}
+    for row in par_statut_brut:
+        comptes[normaliser_statut(row['statut'])] += row['nombre']
+    statuts_labels = [s for s in STATUTS if comptes[s]]
+    statuts_valeurs = [comptes[s] for s in statuts_labels]
+    total_entretiens = comptes['Entretien']
+
+    # offres compatibles = score de matching d'au moins 40 % (vrai calcul sur le dernier CV)
+    offres_compatibles = None
+    ents = get_entreprises(limit=400, user_id=uid)
+    if any(e.get('matching') for e in ents):
+        offres_compatibles = sum(1 for e in ents if (e['score_matching'] or 0) >= 40)
+
+    activites = [{'entreprise': r['nom_entreprise'], 'statut': normaliser_statut(r['statut']),
+                  'date': formater_date(r['date_candidature'])} for r in recentes]
 
     return render_template(
         'dashboard.html',
         total_candidatures=total_candidatures,
         total_entretiens=total_entretiens,
+        total_entreprises=total_entreprises,
+        total_favoris=total_favoris,
+        offres_compatibles=offres_compatibles,
+        activites=activites,
         statuts_labels=statuts_labels,
         statuts_valeurs=statuts_valeurs,
-        secteurs_labels=secteurs_labels,
-        secteurs_valeurs=secteurs_valeurs
+        secteurs_labels=[r['secteur'] or 'Non précisé' for r in par_secteur],
+        secteurs_valeurs=[r['nombre'] for r in par_secteur]
     )
 
 # --- ANALYSE DES DONNÉES ---
@@ -1785,6 +1969,8 @@ def enregistrer_fichier_assistant(fichier, user_id):
         return None, "Le fichier est vide."
     if len(donnees) > TAILLE_MAX_ASSISTANT:
         return None, "Fichier trop volumineux (10 Mo maximum)."
+    if not contenu_fichier_valide(donnees, ext):
+        return None, "Le contenu du fichier ne correspond pas à son extension."
 
     chemin = os.path.join(DOSSIER_ASSISTANT, f"user_{user_id}_{uuid.uuid4().hex}.{ext}")
     with open(chemin, 'wb') as f:
@@ -2074,4 +2260,7 @@ def telecharger_cv_genere():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+    # Lancement LOCAL uniquement. En production : gunicorn (voir Procfile).
+    mode_debug = os.environ.get('FLASK_DEBUG') == '1' and not est_production()
+    app.run(host='127.0.0.1', port=int(os.environ.get('PORT', 5000)),
+            debug=mode_debug, use_reloader=False)

@@ -10,6 +10,7 @@
   {% endif %}
 
   <form method="POST" action="{{ url_for('candidature') }}" class="form-card card" id="form-lettre">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label class="form-label" for="entreprise">Entreprise</label>
     <select id="entreprise" name="entreprise" required>
       <option value="" disabled {% if not choisie %}selected{% endif %}>Choisis une entreprise…</option>
@@ -31,6 +32,7 @@
 
   {% if message %}
   <form method="POST" action="{{ url_for('envoyer_lettre') }}" class="form-card card message-card" id="form-envoi">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="entreprise" value="{{ choisie }}">
     <input type="hidden" name="poste" value="{{ poste }}">
 

@@ -3,6 +3,7 @@
 
 {% block content %}
   <form method="POST" class="form-card card auth-card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h1 class="auth-title">Mot de passe oublié</h1>
     <p class="auth-sub">Saisis l'adresse email de ton compte. Si elle existe, tu recevras un lien pour choisir un nouveau mot de passe.</p>
 

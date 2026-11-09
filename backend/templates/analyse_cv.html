@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Analyse de mon CV — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-file-earmark-check title-icon"></i>Analyse de mon CV</h1>
+  <p class="stat-label page-sub">Fichier analysé : {{ cv['nom_fichier'] }}. Tout est extrait de ton CV, rien n'est inventé.</p>
+
+  <section class="analyse-grid">
+    <div class="card">
+      <h3 class="card-title">Coordonnées détectées</h3>
+      <ul class="liste-simple">
+        <li><strong>Nom :</strong> {{ a['nom'] or 'Non détecté' }}</li>
+        <li><strong>Email :</strong> {{ a['email'] or 'Non détecté' }}</li>
+        <li><strong>Téléphone :</strong> {{ a['telephone'] or 'Non détecté' }}</li>
+        <li><strong>Localisation :</strong> {{ a['localisation'] or 'Non détectée' }}</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Compétences techniques ({{ a['competences_techniques']|length }})</h3>
+      {% if a['competences_techniques'] %}
+        <p class="tags">{% for c in a['competences_techniques'] %}<span class="tag">{{ c }}</span>{% endfor %}</p>
+      {% else %}
+        <p class="stat-label">Aucune compétence technique reconnue dans le CV.</p>
+      {% endif %}
+      <h3 class="card-title" style="margin-top:14px">Compétences personnelles</h3>
+      {% if a['competences_personnelles'] %}
+        <p class="tags">{% for c in a['competences_personnelles'] %}<span class="tag tag-soft">{{ c }}</span>{% endfor %}</p>
+      {% else %}
+        <p class="stat-label">Aucune détectée.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Formation</h3>
+      {% if a['formation'] %}
+        <ul class="liste-simple">{% for f in a['formation'] %}<li>{{ f['intitule'] }}</li>{% endfor %}</ul>
+      {% else %}<p class="stat-label">Section non détectée.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Expériences</h3>
+      {% if a['experiences'] %}
+        <ul class="liste-simple">
+          {% for e in a['experiences'] %}
+          <li>{{ e['intitule'] or (e['details'][0] if e['details'] else '') }}{% if e['periode'] %} <span class="activite-date">({{ e['periode'] }})</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+      {% else %}<p class="stat-label">Aucune expérience détectée.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Projets</h3>
+      {% if a['projets'] %}
+        <ul class="liste-simple">{% for p in a['projets'] %}<li>{{ p['intitule'] }}</li>{% endfor %}</ul>
+      {% else %}<p class="stat-label">Aucun projet détecté.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <h3 class="card-title">Langues</h3>
+      {% if a['langues'] %}
+        <ul class="liste-simple">{% for l in a['langues'] %}<li>{{ l['langue'] }}{% if l['niveau'] %} — {{ l['niveau'] }}{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="stat-label">Section non détectée.</p>{% endif %}
+      <h3 class="card-title" style="margin-top:14px">Certifications</h3>
+      {% if a['certifications'] %}
+        <ul class="liste-simple">{% for c in a['certifications'] %}<li>{{ c }}</li>{% endfor %}</ul>
+      {% else %}<p class="stat-label">Aucune détectée.</p>{% endif %}
+    </div>
+  </section>
+
+  <h2 class="section-title">Recommandations pour améliorer ton CV</h2>
+  <div class="card">
+    {% if a['recommandations'] %}
+      <ul class="liste-simple conseils">{% for r in a['recommandations'] %}<li><i class="bi bi-lightbulb"></i> {{ r }}</li>{% endfor %}</ul>
+    {% else %}
+      <p class="stat-label">Ton CV est complet : aucun point faible détecté par l'analyse automatique.</p>
+    {% endif %}
+    <p class="stat-label" style="margin-top:12px">Pour aller plus loin : <a href="{{ url_for('generer_cv') }}">génère un CV amélioré</a> ou demande conseil à <a href="{{ url_for('assistant_ia') }}">l'assistant IA</a>.</p>
+  </div>
+{% endblock %}

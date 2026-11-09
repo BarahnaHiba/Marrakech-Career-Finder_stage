@@ -69,7 +69,37 @@
       <div class="stat-number">{{ total_entretiens }}</div>
       <div class="stat-label">Entretiens obtenus</div>
     </div>
+    <div class="card">
+      <div class="stat-number">{{ total_entreprises }}</div>
+      <div class="stat-label">Entreprises référencées</div>
+    </div>
+    <div class="card">
+      <div class="stat-number">{{ total_favoris }}</div>
+      <div class="stat-label">Favoris</div>
+    </div>
+    <div class="card">
+      {% if offres_compatibles is not none %}
+        <div class="stat-number">{{ offres_compatibles }}</div>
+        <div class="stat-label">Offres compatibles (≥ 40 %) <a href="{{ url_for('recommandations') }}">voir</a></div>
+      {% else %}
+        <div class="stat-number">—</div>
+        <div class="stat-label"><a href="{{ url_for('profil') }}">Importe ton CV</a> pour calculer la compatibilité</div>
+      {% endif %}
+    </div>
   </section>
+
+  <h2 class="section-title">Activité récente</h2>
+  <div class="card">
+    {% if activites %}
+    <ul class="activites">
+      {% for a in activites %}
+      <li><strong>{{ a['entreprise'] }}</strong> — {{ a['statut'] }} <span class="activite-date">{{ a['date'] }}</span></li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="stat-label">Aucune candidature pour le moment. Va dans <a href="{{ url_for('entreprises') }}">Entreprises</a> et clique sur « Postuler ».</p>
+    {% endif %}
+  </div>
 
   <section class="charts-row">
     <div class="card">
@@ -91,7 +121,7 @@
       labels: {{ statuts_labels | tojson }},
       datasets: [{
         data: {{ statuts_valeurs | tojson }},
-        backgroundColor: ['#7c6bd6', '#a898ee', '#f6c453', '#7fd1a8', '#f08a9b', '#7aa7e6']
+        backgroundColor: ['#7aa7e6', '#7c6bd6', '#f6c453', '#a898ee', '#f08a9b', '#7fd1a8', '#b8b8c8']
       }]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom' } } }

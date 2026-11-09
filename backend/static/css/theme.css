@@ -1372,3 +1372,43 @@ body.auth-split {
   .bubble { max-width: 94%; }
   .btn.send { margin-left: 0; width: 100%; }
 }
+/* ===== Statuts officiels (en plus des anciens libellés) ===== */
+.statut-select[data-statut="À postuler"]          { background: var(--blue-100);   color: #3b6bb5; }
+.statut-select[data-statut="Candidature envoyée"] { background: var(--violet-200); color: var(--violet-900); }
+.statut-select[data-statut="Relance"]             { background: var(--yellow-100); color: #b7791f; }
+.statut-select[data-statut="Accepté"]             { background: #c8f0d8;           color: #1f6f46; }
+.statut-select[data-statut="Refusé"]              { background: var(--pink-100);   color: #c0392b; }
+.statut-select[data-statut="Abandonné"]           { background: #ececf2;           color: #6b6b80; }
+
+/* ===== Remarques sur une candidature ===== */
+.notes-form { display: flex; gap: 6px; align-items: center; min-width: 180px; }
+.notes-input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid #ddd8f3; border-radius: 10px; font: inherit; font-size: 13px; }
+.notes-btn { border: 0; background: var(--violet-100); color: var(--violet-900); border-radius: 10px; padding: 7px 10px; cursor: pointer; }
+
+/* ===== Détail du matching, analyse du CV, recommandations, dashboard ===== */
+.match-detail { margin: 8px 0; font-size: 13px; }
+.match-detail summary { cursor: pointer; color: var(--violet-900); font-weight: 700; }
+.match-detail p { margin: 4px 0; }
+.match-niveau { font-weight: 700; }
+.analyse-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 22px; }
+.liste-simple { list-style: none; margin: 0; padding: 0; }
+.liste-simple li { padding: 5px 0; border-bottom: 1px solid #f0edfa; font-size: 14px; }
+.liste-simple li:last-child { border-bottom: 0; }
+.conseils li i { color: #b7791f; margin-right: 6px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.tag { background: var(--violet-100); color: var(--violet-900); padding: 4px 11px; border-radius: 20px; font-size: 12.5px; font-weight: 700; }
+.tag-soft { background: #dff5ea; color: #2f855a; }
+.reco-liste { display: grid; gap: 14px; }
+.reco-tete { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.reco-tete h3 { margin: 0; }
+.btn-lien { display: inline-block; margin-top: 8px; padding: 8px 18px; border-radius: 30px; background: var(--violet-900); color: #fff; text-decoration: none; font-weight: 700; font-size: 13px; }
+.activites { list-style: none; margin: 0; padding: 0; }
+.activites li { padding: 8px 0; border-bottom: 1px solid #f0edfa; }
+.activites li:last-child { border-bottom: 0; }
+.activite-date { color: #8a84b0; font-size: 12px; margin-left: 6px; }
+@media (max-width: 720px) {
+  .table-card { overflow-x: auto; }
+  .notes-form { min-width: 150px; }
+}
+
+.form-inline { display: inline; margin: 0; }

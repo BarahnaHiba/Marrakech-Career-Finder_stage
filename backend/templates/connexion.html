@@ -3,6 +3,7 @@
 
 {% block content %}
   <form method="POST" class="form-card card auth-card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h1 class="auth-title">Content de te revoir</h1>
     <p class="auth-sub">Connecte-toi pour retrouver tes candidatures et ton matching CV.</p>
 

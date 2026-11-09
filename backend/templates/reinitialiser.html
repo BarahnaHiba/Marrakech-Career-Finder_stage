@@ -3,6 +3,7 @@
 
 {% block content %}
   <form method="POST" class="form-card card auth-card">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <h1 class="auth-title">Nouveau mot de passe</h1>
     <p class="auth-sub">Choisis un mot de passe d'au moins 8 caractères.</p>
 

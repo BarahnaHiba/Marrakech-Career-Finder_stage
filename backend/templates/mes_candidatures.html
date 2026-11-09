@@ -14,6 +14,7 @@
           <th>Ville</th>
           <th>Date</th>
           <th>Statut</th>
+          <th>Remarques</th>
         </tr>
       </thead>
       <tbody>
@@ -25,17 +26,26 @@
           <td>{{ c['date_candidature'] }}</td>
           <td>
             <form method="POST" action="{{ url_for('changer_statut', application_id=c['id']) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <select name="statut" class="statut-select" data-statut="{{ c['statut'] }}" onchange="this.form.submit()">
-                {% for option in ['À préparer', 'Envoyée', 'En attente', 'Entretien', 'Acceptée', 'Refusée'] %}
+                {% for option in statuts %}
                 <option value="{{ option }}" {% if option == c['statut'] %}selected{% endif %}>{{ option }}</option>
                 {% endfor %}
               </select>
             </form>
           </td>
+          <td>
+            <form method="POST" action="{{ url_for('changer_notes', application_id=c['id']) }}" class="notes-form">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="text" name="notes" value="{{ c['notes'] or '' }}" maxlength="2000" placeholder="Ajouter une remarque…" class="notes-input" aria-label="Remarques">
+              <button type="submit" class="notes-btn" title="Enregistrer"><i class="bi bi-check2"></i></button>
+            </form>
+          </td>
+          </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="5" class="vide">Aucune candidature pour le moment. Va dans Entreprises et clique sur « Postuler ».</td>
+          <td colspan="6" class="vide">Aucune candidature pour le moment. Va dans Entreprises et clique sur « Postuler ».</td>
         </tr>
         {% endfor %}
       </tbody>

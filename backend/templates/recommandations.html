@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Recommandations — Marrakech Career Finder{% endblock %}
+
+{% block content %}
+  <h1 class="page-title"><i class="bi bi-bullseye title-icon"></i>Recommandations pour toi</h1>
+  <p class="stat-label page-sub">Les 10 entreprises les plus compatibles avec ton CV. Score = 50 % compétences couvertes, 35 % similarité TF-IDF, 15 % intitulé du poste.</p>
+
+  {% if a_apprendre %}
+  <div class="card" style="margin-bottom:18px">
+    <h3 class="card-title">Compétences à apprendre en priorité</h3>
+    <p class="tags">{% for nom, nb in a_apprendre %}<span class="tag" title="Manque dans {{ nb }} des offres ci-dessous">{{ nom }} ({{ nb }})</span>{% endfor %}</p>
+    <p class="stat-label">Entre parenthèses : nombre d'offres de ce classement qui la demandent.</p>
+  </div>
+  {% endif %}
+
+  <div class="reco-liste">
+    {% for e in offres %}
+    <div class="card reco-item">
+      <div class="reco-tete">
+        <h3>{{ e['nom_entreprise'] }}</h3>
+        <span class="badge badge-match">{{ e['score_matching'] }}% — {{ e['matching']['niveau'] }}</span>
+      </div>
+      <p class="stat-label">{{ e['titre_poste'] or e['domaine'] or e['secteur'] or '' }}</p>
+      <p>{{ e['matching']['explication'] }}</p>
+      <p class="stat-label">Détail : couverture {{ e['matching']['details_score']['couverture_competences'] if e['matching']['details_score']['couverture_competences'] is not none else 'n/a' }} % · TF-IDF {{ e['matching']['details_score']['similarite_tfidf'] }} % · intitulé {{ e['matching']['details_score']['correspondance_titre'] }} %</p>
+      <form method="POST" action="{{ url_for('postuler', nom_entreprise=e['nom_entreprise'], retour='entreprises') }}" class="form-inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-lien" style="border:0;cursor:pointer" onclick="return confirm('Postuler à {{ e['nom_entreprise']|replace("'", "") }} ?');">Postuler</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+{% endblock %}

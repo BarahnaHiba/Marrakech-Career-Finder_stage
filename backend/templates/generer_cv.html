@@ -26,6 +26,7 @@
   <p class="stat-label page-sub">Envoie ton CV (PDF, Word ou photo) : l'IA le réécrit au format ATS, sans rien inventer. Ton nom, ton téléphone et ton email sont ajoutés automatiquement.</p>
 
   <form method="POST" action="{{ url_for('generer_cv') }}" enctype="multipart/form-data" class="form-card card" id="form-cv">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label class="form-label" for="fichier">Ton CV actuel (PDF, Word, TXT, ou photo / capture)</label>
     <input id="fichier" type="file" name="fichier" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp">
     <p class="stat-label">
@@ -38,6 +39,7 @@
 
   {% if cv %}
   <form method="POST" action="{{ url_for('telecharger_cv_genere') }}" class="form-card card message-card" id="form-pdf">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="cv_json" id="cv-json">
     <p class="stat-label">Clique sur n'importe quel texte du CV pour le corriger directement.</p>
 
