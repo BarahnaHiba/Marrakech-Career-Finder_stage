@@ -1,0 +1,6 @@
+-r requirements.txt
+# Tests
+pytest>=8
+# Scripts d'import / vérification de données Excel (importer_*.py, voir_*.py, verifier_*.py)
+pandas>=2.2
+openpyxl>=3.1

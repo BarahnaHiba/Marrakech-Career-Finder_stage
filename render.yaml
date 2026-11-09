@@ -1,0 +1,26 @@
+# Blueprint Render : "New +" > "Blueprint" > choisir le dépôt GitHub.
+services:
+  - type: web
+    name: marrakech-career-finder
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --chdir backend app:app --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: APP_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MODE_ENVOI          # "test" = aucun email réel envoyé aux entreprises
+        value: test
+      - key: DATABASE_URL        # à saisir dans le tableau de bord Render (URL Neon, sslmode=require)
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GMAIL_ADDRESS
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
