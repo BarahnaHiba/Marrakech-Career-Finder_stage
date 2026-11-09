@@ -29,7 +29,7 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, HRFlowable
 
-# Charge le fichier .env du dossier backend (clés Gemini, Gmail, MODE_ENVOI, DATABASE_URL)
+# Charge le fichier .env du dossier backend (clés Gemini, Gmail, Brevo, MODE_ENVOI, DATABASE_URL)
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # --- Texte des candidatures envoyées par email (modifie ici) ---
@@ -155,7 +155,7 @@ def exporter_inscrits_csv():
                 l['telephone'] or '',
                 l['email'],
                 l['date_naissance'] or '',
-                'oui' if l['email_verifie'] else 'non'
+                'oui' if email_est_verifie(l['email_verifie']) else 'non'
             ])
 
 
@@ -165,6 +165,13 @@ def mettre_a_jour_csv():
         exporter_inscrits_csv()
     except Exception as e:
         print("Export CSV impossible :", repr(e))
+
+
+def email_est_verifie(valeur):
+    """Fonctionne que email_verifie soit un booléen, un entier ou un texte ('0' / '1')."""
+    if isinstance(valeur, str):
+        return valeur.strip().lower() in ('1', 'true', 't', 'oui', 'yes')
+    return bool(valeur)
 
 
 mettre_a_jour_csv()  # au démarrage
@@ -811,11 +818,13 @@ def envoyer_lettre():
 #  ENVOI D'EMAILS DE COMPTE (code de vérification)
 # =====================================================================
 
+
 def envoyer_email_code(destinataire, nom, code):
-    adresse = os.environ.get('GMAIL_ADDRESS')
-    mot_de_passe = (os.environ.get('GMAIL_APP_PASSWORD') or '').replace(' ', '')
-    if not adresse or not mot_de_passe:
-        raise RuntimeError("GMAIL_ADDRESS ou GMAIL_APP_PASSWORD manque dans le fichier .env.")
+    login = os.environ.get('BREVO_SMTP_LOGIN')
+    cle = os.environ.get('BREVO_SMTP_KEY')
+    adresse = os.environ.get('EMAIL_EXPEDITEUR')
+    if not login or not cle or not adresse:
+        raise RuntimeError("BREVO_SMTP_LOGIN, BREVO_SMTP_KEY ou EMAIL_EXPEDITEUR manque dans le fichier .env.")
 
     msg = EmailMessage()
     msg['Subject'] = f"Ton code de vérification : {code} — Marrakech Career Finder"
@@ -840,40 +849,63 @@ def envoyer_email_code(destinataire, nom, code):
         subtype='html'
     )
 
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as serveur:
-        serveur.login(adresse, mot_de_passe)
+    with smtplib.SMTP('smtp-relay.brevo.com', 587, timeout=20) as serveur:
+        serveur.starttls()
+        serveur.login(login, cle)
         refuses = serveur.send_message(msg)
 
     if refuses:
         raise RuntimeError(f"Adresse refusée par le serveur : {refuses}")
     print(f"[EMAIL] Code envoyé à {destinataire} depuis {adresse}")
 
+
+# --- CODE DE VÉRIFICATION : création, enregistrement (haché) et envoi ---
+
+def init_colonnes_verification():
+    """Ajoute les colonnes du code de vérification si elles n'existent pas encore."""
+    try:
+        conn = get_db_connection()
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS code_verif TEXT")
+            conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS code_expire TIMESTAMP")
+            conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS code_essais INTEGER DEFAULT 0")
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        print("Colonnes de vérification non préparées :", repr(e))
+
+init_colonnes_verification()
+
+
+def masquer_email(email):
+    """lily.client@gmail.com -> li********@gmail.com"""
+    email = email or ''
+    if '@' not in email:
+        return email
+    local, domaine = email.split('@', 1)
+    return f"{local[:2]}{'*' * max(len(local) - 2, 1)}@{domaine}"
+
+
 def creer_et_envoyer_code(user_id, nom, email):
-    """Génère un code à 6 chiffres, le stocke (haché) et l'envoie par email."""
+    """Génère un code à 6 chiffres, le stocke haché dans Neon, puis l'envoie par email."""
     code = f"{secrets.randbelow(1000000):06d}"
-    expire = datetime.now() + timedelta(minutes=DUREE_CODE_MINUTES)
+    expire = (datetime.now() + timedelta(minutes=DUREE_CODE_MINUTES)).isoformat()
+
     conn = get_db_connection()
     try:
         conn.execute(
             "UPDATE users SET code_verif = %s, code_expire = %s, code_essais = 0 WHERE id = %s",
-            (generate_password_hash(code), expire.isoformat(), user_id)
+            (generate_password_hash(code), expire, user_id)
         )
         conn.commit()
     finally:
         conn.close()
 
-    # Pour le développement : affiche le code dans le terminal
-    if os.environ.get('AFFICHER_CODE_TERMINAL', '0') == '1' and not est_production():
-        print(f"[DEV] Code de vérification pour {email} : {code}")
-
     envoyer_email_code(email, nom, code)
 
-def masquer_email(email):
-    """hiba123@gmail.com -> h***@gmail.com"""
-    if '@' not in email:
-        return email
-    local, domaine = email.split('@', 1)
-    return f"{local[:1]}***@{domaine}"
+
+print("[INIT] creer_et_envoyer_code chargée depuis :", os.path.abspath(__file__))
 
 
 # --- INSCRIPTION ---
@@ -966,7 +998,7 @@ def connexion():
             session.clear()  # repart d'une session vierge : plus aucune trace du compte précédent
 
             # Première connexion : l'email doit d'abord être vérifié avec un code
-            if not user_row['email_verifie']:
+            if not email_est_verifie(user_row['email_verifie']):
                 try:
                     creer_et_envoyer_code(user_row['id'], user_row['nom'], user_row['email'])
                 except Exception as e:
