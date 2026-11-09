@@ -6,7 +6,7 @@ from email.message import EmailMessage
 DUREE_CODE_MINUTES = 10
 
 
-def envoyer_email_code(destinataire, nom, code):
+def _configuration_smtp():
     brevo_login = os.environ.get("BREVO_SMTP_LOGIN")
     brevo_cle = os.environ.get("BREVO_SMTP_KEY")
     brevo_expediteur = os.environ.get("EMAIL_EXPEDITEUR")
@@ -14,18 +14,35 @@ def envoyer_email_code(destinataire, nom, code):
     gmail_mot_de_passe = os.environ.get("GMAIL_APP_PASSWORD")
 
     if brevo_login and brevo_cle and brevo_expediteur:
-        fournisseur = "brevo"
-        expediteur = brevo_expediteur
+        return "brevo", brevo_login, brevo_cle, brevo_expediteur
     elif gmail_adresse and gmail_mot_de_passe:
-        fournisseur = "gmail"
-        expediteur = gmail_adresse
-        gmail_mot_de_passe = "".join(gmail_mot_de_passe.split())
-    else:
-        raise RuntimeError(
-            "Configure BREVO_SMTP_LOGIN, BREVO_SMTP_KEY et EMAIL_EXPEDITEUR, "
-            "ou GMAIL_ADDRESS et GMAIL_APP_PASSWORD."
-        )
+        return "gmail", gmail_adresse, "".join(gmail_mot_de_passe.split()), gmail_adresse
 
+    raise RuntimeError(
+        "Configure BREVO_SMTP_LOGIN, BREVO_SMTP_KEY et EMAIL_EXPEDITEUR, "
+        "ou GMAIL_ADDRESS et GMAIL_APP_PASSWORD."
+    )
+
+
+def envoyer_email(message):
+    fournisseur, login, cle, _ = _configuration_smtp()
+    refus = None
+    if fournisseur == "brevo":
+        with smtplib.SMTP("smtp-relay.brevo.com", 587, timeout=20) as serveur:
+            serveur.starttls()
+            serveur.login(login, cle)
+            refus = serveur.send_message(message)
+    else:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as serveur:
+            serveur.login(login, cle)
+            refus = serveur.send_message(message)
+
+    if refus:
+        raise RuntimeError(f"Adresse refusée par le serveur : {refus}")
+
+
+def envoyer_email_code(destinataire, nom, code):
+    _, _, _, expediteur = _configuration_smtp()
     message = EmailMessage()
     message["Subject"] = f"Ton code de vérification : {code} — Marrakech Career Finder"
     message["From"] = f"Marrakech Career Finder <{expediteur}>"
@@ -49,15 +66,22 @@ def envoyer_email_code(destinataire, nom, code):
         subtype="html",
     )
 
-    if fournisseur == "brevo":
-        with smtplib.SMTP("smtp-relay.brevo.com", 587, timeout=20) as serveur:
-            serveur.starttls()
-            serveur.login(brevo_login, brevo_cle)
-            refus = serveur.send_message(message)
-    else:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as serveur:
-            serveur.login(gmail_adresse, gmail_mot_de_passe)
-            refus = serveur.send_message(message)
+    envoyer_email(message)
 
-    if refus:
-        raise RuntimeError(f"Adresse refusée par le serveur : {refus}")
+
+def envoyer_email_reinitialisation(destinataire, nom, lien):
+    _, _, _, expediteur = _configuration_smtp()
+    message = EmailMessage()
+    message["Subject"] = "Réinitialisation de ton mot de passe — Marrakech Career Finder"
+    message["From"] = f"Marrakech Career Finder <{expediteur}>"
+    message["To"] = destinataire
+    message.set_content(
+        f"Bonjour {nom},\n\n"
+        "Tu as demandé à réinitialiser ton mot de passe sur Marrakech Career Finder.\n\n"
+        "Clique sur ce lien pour en choisir un nouveau (valable 1 heure) :\n"
+        f"{lien}\n\n"
+        "Si tu n'es pas à l'origine de cette demande, ignore simplement ce message : "
+        "ton mot de passe actuel reste inchangé.\n\n"
+        "Marrakech Career Finder"
+    )
+    envoyer_email(message)

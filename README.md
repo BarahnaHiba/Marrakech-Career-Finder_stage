@@ -70,7 +70,7 @@ python -m pytest tests -q
    - Build : `pip install -r requirements.txt`
    - Start : `gunicorn --chdir backend app:app --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT`
    - Variables : `APP_ENV=production`, `SECRET_KEY`, `DATABASE_URL` (Neon, `sslmode=require`), `GEMINI_API_KEY`, `ADMIN_EMAILS` (adresses autorisées, séparées par des virgules), `MODE_ENVOI=test` et une configuration email complète.
-     Vérification : Brevo (`BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`, adresse validée dans Brevo) ou Gmail (`GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, mot de passe d'application). Brevo est prioritaire si ses trois paramètres sont définis. Gmail reste aussi nécessaire pour les autres emails de l'application.
+     E-mails de vérification et de réinitialisation : Brevo (`BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`, adresse validée dans Brevo) ou Gmail (`GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, mot de passe d'application). Brevo est prioritaire si ses trois paramètres sont définis. Gmail reste nécessaire pour les autres e-mails de l'application.
    - Health check : `/healthz`
 4. Appliquer la migration sur Neon (depuis ta machine, avec `DATABASE_URL` de Neon dans `backend/.env`).
 5. Tester l'URL publique : inscription → vérification email → CV → recommandations → favoris → candidature.
@@ -81,7 +81,7 @@ python -m pytest tests -q
 2. Dans **Settings → Environment Variables**, ajouter les variables nécessaires :
    `APP_ENV=production`, `SECRET_KEY` (au moins 24 caractères aléatoires), `DATABASE_URL` (Neon avec `sslmode=require`),
    `GEMINI_API_KEY`, `ADMIN_EMAILS` (ajouter `kamiliyaclientcare@gmail.com` pour autoriser ton compte admin) et les variables SMTP décrites ci-dessus.
-   Pour Brevo : `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`. Gmail reste nécessaire pour les autres emails : `GMAIL_ADDRESS` et `GMAIL_APP_PASSWORD`.
+   Pour Brevo : `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`. Gmail reste nécessaire pour les autres e-mails : `GMAIL_ADDRESS` et `GMAIL_APP_PASSWORD`.
 3. Laisser Vercel utiliser `requirements.txt` pour installer les dépendances, puis lancer **Deploy**.
    `pyproject.toml` pointe vers l'application Flask et `vercel.json` configure la fonction Python.
 4. Les fichiers envoyés sont stockés temporairement dans `/tmp` sur Vercel. Ils peuvent disparaître entre deux requêtes ou déploiements ;

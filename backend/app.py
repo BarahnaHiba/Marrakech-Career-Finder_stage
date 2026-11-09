@@ -54,7 +54,11 @@ from cv_parser import analyser_cv
 from matching import calculer_scores_matching, analyser_matching
 from cv_parser import analyser_texte_cv
 from security import init_security, limiter_tentatives, contenu_fichier_valide, est_production
-from email_service import DUREE_CODE_MINUTES, envoyer_email_code
+from email_service import (
+    DUREE_CODE_MINUTES,
+    envoyer_email_code,
+    envoyer_email_reinitialisation as envoyer_email_reinitialisation_smtp,
+)
 from admin_access import admin_required, email_est_administrateur
 from maps import URLError, geocoder_entreprise
 
@@ -1171,27 +1175,7 @@ def lire_jeton_reinitialisation(jeton):
     return None
 
 def envoyer_email_reinitialisation(destinataire, nom, lien):
-    adresse = os.environ.get('GMAIL_ADDRESS')
-    mot_de_passe = (os.environ.get('GMAIL_APP_PASSWORD') or '').replace(' ', '')
-    if not adresse or not mot_de_passe:
-        raise RuntimeError("GMAIL_ADDRESS ou GMAIL_APP_PASSWORD manque dans le fichier .env.")
-
-    msg = EmailMessage()
-    msg['Subject'] = "Réinitialisation de ton mot de passe — Marrakech Career Finder"
-    msg['From'] = f"Marrakech Career Finder <{adresse}>"
-    msg['To'] = destinataire
-    msg.set_content(
-        f"Bonjour {nom},\n\n"
-        "Tu as demandé à réinitialiser ton mot de passe sur Marrakech Career Finder.\n\n"
-        "Clique sur ce lien pour en choisir un nouveau (valable 1 heure) :\n"
-        f"{lien}\n\n"
-        "Si tu n'es pas à l'origine de cette demande, ignore simplement ce message : "
-        "ton mot de passe actuel reste inchangé.\n\n"
-        "Marrakech Career Finder"
-    )
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=20) as serveur:
-        serveur.login(adresse, mot_de_passe)
-        serveur.send_message(msg)
+    envoyer_email_reinitialisation_smtp(destinataire, nom, lien)
 
 @app.route('/mot-de-passe-oublie', methods=['GET', 'POST'])
 @limiter_tentatives(5, 300)
@@ -1217,7 +1201,8 @@ def mot_de_passe_oublie():
                 print("Erreur envoi email de réinitialisation :", repr(e))
 
         # Même message que l'adresse existe ou non (on ne révèle pas qui a un compte)
-        flash("Si cette adresse correspond à un compte, un lien de réinitialisation vient d'être envoyé.")
+        flash("Si cette adresse correspond à un compte, un lien a été envoyé. "
+              "Vérifie aussi les courriers indésirables ; si rien n'arrive, réessaie plus tard.")
         return redirect(url_for('connexion'))
     return render_template('mot_de_passe_oublie.html')
 

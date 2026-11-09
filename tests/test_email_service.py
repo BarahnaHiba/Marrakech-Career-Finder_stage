@@ -91,3 +91,48 @@ def test_adresse_refusee_par_le_serveur_est_signalee(monkeypatch):
 
         with pytest.raises(RuntimeError, match="Adresse refusée"):
             email_service.envoyer_email_code("destinataire@example.com", "Hiba", "123456")
+
+
+def test_email_reinitialisation_utilise_brevo_et_contient_le_lien(monkeypatch):
+    nettoyer_configuration(monkeypatch)
+    monkeypatch.setenv("BREVO_SMTP_LOGIN", "login")
+    monkeypatch.setenv("BREVO_SMTP_KEY", "cle")
+    monkeypatch.setenv("EMAIL_EXPEDITEUR", "expediteur@example.com")
+
+    with patch.object(email_service.smtplib, "SMTP") as smtp:
+        serveur = smtp.return_value.__enter__.return_value
+        serveur.send_message.return_value = {}
+
+        email_service.envoyer_email_reinitialisation(
+            "destinataire@example.com", "Hiba", "https://exemple.test/reinitialiser/jeton"
+        )
+
+    smtp.assert_called_once_with("smtp-relay.brevo.com", 587, timeout=20)
+    serveur.starttls.assert_called_once_with()
+    serveur.login.assert_called_once_with("login", "cle")
+    message = serveur.send_message.call_args.args[0]
+    assert message["To"] == "destinataire@example.com"
+    assert "expediteur@example.com" in message["From"]
+    assert "https://exemple.test/reinitialiser/jeton" in message.get_content()
+    assert "valable 1 heure" in message.get_content()
+
+
+def test_email_reinitialisation_utilise_gmail_si_brevo_incomplet(monkeypatch):
+    nettoyer_configuration(monkeypatch)
+    monkeypatch.setenv("BREVO_SMTP_LOGIN", "login-incomplet")
+    monkeypatch.setenv("GMAIL_ADDRESS", "expediteur@gmail.com")
+    monkeypatch.setenv("GMAIL_APP_PASSWORD", "abcd efgh\n")
+
+    with patch.object(email_service.smtplib, "SMTP_SSL") as smtp_ssl:
+        serveur = smtp_ssl.return_value.__enter__.return_value
+        serveur.send_message.return_value = {}
+
+        email_service.envoyer_email_reinitialisation(
+            "destinataire@example.com", "Hiba", "https://exemple.test/reinitialiser/jeton"
+        )
+
+    smtp_ssl.assert_called_once_with("smtp.gmail.com", 465, timeout=20)
+    serveur.login.assert_called_once_with("expediteur@gmail.com", "abcdefgh")
+    message = serveur.send_message.call_args.args[0]
+    assert message["From"] == "Marrakech Career Finder <expediteur@gmail.com>"
+    assert "https://exemple.test/reinitialiser/jeton" in message.get_content()
