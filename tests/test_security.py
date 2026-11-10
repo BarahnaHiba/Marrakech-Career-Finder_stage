@@ -101,6 +101,16 @@ def test_production_sans_secret_key_refuse_de_demarrer(monkeypatch):
         creer_app(monkeypatch, env="production", secret=None)
 
 
+def test_vercel_est_detecte_comme_production_sans_app_env(monkeypatch):
+    monkeypatch.delenv("APP_ENV", raising=False)
+    monkeypatch.delenv("RENDER", raising=False)
+    monkeypatch.setenv("VERCEL", "1")
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY"):
+        security.init_security(Flask(__name__))
+
+
 def test_production_secret_par_defaut_ou_court_refuse(monkeypatch):
     with pytest.raises(RuntimeError):
         creer_app(monkeypatch, env="production", secret="change-moi-plus-tard-avec-une-vraie-cle-secrete")

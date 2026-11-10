@@ -13,7 +13,7 @@ from llm_service import demander_au_llm
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, send_from_directory, jsonify, abort
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from datetime import date, datetime, timedelta
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 from pathlib import Path
 import psycopg
 from psycopg.rows import dict_row
@@ -434,6 +434,22 @@ def get_infos_expediteur():
 
 def preparer_contact(e, moi):
     """Nettoie l'email de l'entreprise et prépare les liens Gmail / Mail pré-remplis."""
+    site_web = (e.get('site_web') or '').strip()
+    if site_web:
+        try:
+            morceaux_url = urlsplit(site_web)
+            if not morceaux_url.scheme:
+                morceaux_url = urlsplit(f"https://{site_web.lstrip('/')}")
+            e['site_web'] = (
+                morceaux_url.geturl()
+                if morceaux_url.scheme.lower() in {'http', 'https'} and morceaux_url.hostname
+                else ''
+            )
+        except ValueError:
+            e['site_web'] = ''
+    else:
+        e['site_web'] = ''
+
     email = (e.get('email') or '').strip()
     valide = bool(email) and not any(f in email.lower() for f in EMAILS_FAUX)
     e['email'] = email if valide else ''
@@ -611,10 +627,36 @@ def api_entreprises():
 def opportunites():
     return liste_entreprises("Opportunités", "Les entreprises de priorité Haute.", seulement_haute=True)
 
-# --- CONTACTS : la page est fusionnée avec Entreprises (l'ancien lien redirige) ---
+# --- CONTACTS ---
 @app.route('/contacts')
 def contacts():
-    return redirect(url_for('entreprises'))
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            "SELECT id, nom_entreprise, domaine, secteur, email, telephone, "
+            "adresse, ville, site_web FROM companies "
+            "WHERE email IS NOT NULL AND btrim(email) <> '' "
+            "ORDER BY nom_entreprise LIMIT 400"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    moi = get_infos_expediteur()
+    for entreprise in rows:
+        preparer_contact(entreprise, moi)
+
+    entreprises_avec_email = [entreprise for entreprise in rows if entreprise['email']]
+    domaines = sorted({
+        entreprise['domaine']
+        for entreprise in entreprises_avec_email
+        if entreprise['domaine']
+    })
+    return render_template(
+        'contacts.html',
+        entreprises=entreprises_avec_email,
+        domaines=domaines,
+        moi=moi,
+    )
 
 
 # =====================================================================

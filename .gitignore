@@ -17,11 +17,12 @@ __pycache__/
 # Données privées / générées
 backend/uploads/
 backend/static/avatars/
+backend/schema_report.txt
 database/*
 !database/migrations/
 !database/appliquer_migration.py
-!database/init_db.py
 *.db
+*.sqlite
 *.sqlite3
 database/sauvegardes/
 

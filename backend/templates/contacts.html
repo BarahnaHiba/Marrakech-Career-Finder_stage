@@ -3,48 +3,62 @@
 
 {% block content %}
   <h1 class="page-title"><i class="bi bi-people title-icon"></i>Contacter les entreprises</h1>
-  <p class="stat-label page-sub">Les entreprises de Marrakech avec une adresse email : envoie ta candidature spontanée en un clic.</p>
+  <p class="stat-label page-sub">Filtre les entreprises, prépare un message professionnel et choisis ton moyen de contact.</p>
 
-  <div class="filtres card">
-    <input id="recherche" type="search" placeholder="Rechercher une entreprise ou un email…">
+  <form class="filtres card" role="search" onsubmit="return false">
+    <label for="recherche">Entreprise, domaine, adresse ou email</label>
+    <input id="recherche" type="search" placeholder="Ex. : Data, Marrakech, recrutement…">
+    <label for="filtre-domaine">Domaine</label>
     <select id="filtre-domaine">
       <option value="">Tous les domaines</option>
       {% for d in domaines %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
     </select>
-    <button class="btn btn-small btn-outline" id="copier-tous" type="button">Copier tous les emails affichés</button>
-  </div>
+    <div class="actions">
+      <button class="btn btn-small btn-outline" id="effacer-filtres" type="reset">Effacer les filtres</button>
+      <button class="btn btn-small btn-outline" id="copier-tous" type="button">Copier les emails affichés</button>
+    </div>
+  </form>
 
-  <h2 class="section-title">Résultats (<span id="nb">{{ entreprises|length }}</span>)</h2>
+  <h2 class="section-title">Résultats (<span id="nb" aria-live="polite">{{ entreprises|length }}</span>)</h2>
 
   <div class="cards-grid" id="grille">
   {% for e in entreprises %}
-    {% set sujet = "Candidature spontanée – Stage – " ~ moi.nom %}
-    {% set message = "Bonjour,\n\nJe m'appelle " ~ moi.nom ~ ", étudiant(e) en 2e année AI / Data Analyst à Marrakech. Je souhaite effectuer un stage au sein de " ~ e.nom_entreprise ~ " et vous prie de bien vouloir trouver mon CV ci-joint.\n\nJe reste disponible pour un entretien.\n\nCordialement,\n" ~ moi.nom ~ "\n" ~ moi.telephone ~ "\n" ~ moi.email %}
-    <div class="contact-card card" data-texte="{{ (e.nom_entreprise ~ ' ' ~ e.email)|lower }}" data-domaine="{{ e.domaine }}" data-email="{{ e.email }}">
+    <div class="contact-card card"
+         data-texte="{{ (e.nom_entreprise ~ ' ' ~ e.email ~ ' ' ~ (e.adresse or '') ~ ' ' ~ (e.ville or '') ~ ' ' ~ (e.site_web or ''))|lower }}"
+         data-domaine="{{ e.domaine or '' }}" data-email="{{ e.email }}">
       <p class="company-name">{{ e.nom_entreprise }}</p>
-      <span class="tag">{{ e.domaine }}</span>
-      <p class="company-meta">{{ e.adresse or '' }}</p>
+      {% if e.domaine %}<span class="tag">{{ e.domaine }}</span>{% endif %}
+      {% if e.adresse or e.ville %}
+        <p class="company-meta"><i class="bi bi-geo-alt"></i> {{ e.adresse or '' }}{% if e.ville %}{{ ', ' if e.adresse else '' }}{{ e.ville }}{% endif %}</p>
+      {% endif %}
       <p class="contact-email"><i class="bi bi-envelope"></i>{{ e.email }}</p>
-      <p class="company-meta"><i class="bi bi-telephone"></i>{{ e.telephone or '—' }}</p>
-             {% if current_user.is_authenticated %}
+      {% if e.telephone %}
+        <p class="company-meta"><i class="bi bi-telephone"></i> <a href="tel:{{ e.telephone|replace(' ', '') }}">{{ e.telephone }}</a></p>
+      {% endif %}
+      {% if current_user.is_authenticated %}
         <form method="POST" action="{{ url_for('postuler', nom_entreprise=e.nom_entreprise, retour='contacts') }}" class="form-inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-small" data-nom="{{ e.nom_entreprise }}"
-             onclick="return confirm('Envoyer ta candidature avec ton CV à ' + this.dataset.nom + ' ?');"><i class="bi bi-send"></i>Envoyer avec mon CV</button>
+             onclick="return confirm('Envoyer ta candidature avec ton CV à ' + this.dataset.nom + ' ?');"><i class="bi bi-send"></i>Envoyer ma candidature avec mon CV</button>
         </form>
-        {% endif %}
+      {% endif %}
       <div class="actions">
-        <a class="btn btn-small" target="_blank" rel="noopener"
-           href="https://mail.google.com/mail/?view=cm&fs=1&to={{ e.email|urlencode }}&su={{ sujet|urlencode }}&body={{ message|urlencode }}">Gmail</a>
-        <a class="btn btn-small btn-outline" href="mailto:{{ e.email }}?subject={{ sujet|urlencode }}&body={{ message|urlencode }}">Mail</a>
-        <button class="btn btn-small btn-outline copier" type="button" data-email="{{ e.email }}">Copier</button>
-        {% if e.site_web %}<a class="btn btn-small btn-outline" target="_blank" rel="noopener" href="{{ e.site_web }}">Site</a>{% endif %}
+        <a class="btn btn-small" target="_blank" rel="noopener noreferrer" href="{{ e.gmail_url }}">Préparer avec Gmail</a>
+        <a class="btn btn-small btn-outline" href="{{ e.mailto_url }}">Autre application mail</a>
+        <button class="btn btn-small btn-outline copier" type="button" data-email="{{ e.email }}" aria-label="Copier l'adresse de {{ e.nom_entreprise }}">Copier l'email</button>
+        {% if current_user.is_authenticated %}
+          <a class="btn btn-small btn-outline" href="{{ url_for('carte_entreprise', company_id=e.id) }}">Voir la carte</a>
+        {% endif %}
+        {% if e.site_web %}<a class="btn btn-small btn-outline" target="_blank" rel="noopener noreferrer" href="{{ e.site_web }}">Site</a>{% endif %}
       </div>
     </div>
   {% endfor %}
   </div>
 
-  <div class="vide" id="vide" style="display:none;">Aucune entreprise ne correspond à la recherche.</div>
+  <div class="vide" id="vide" {% if entreprises %}style="display:none;"{% endif %}>
+    {% if entreprises %}Aucune entreprise ne correspond à ces filtres.{% else %}Aucune entreprise avec une adresse email valide n'est disponible pour le moment.{% endif %}
+  </div>
+  <p id="copie-status" class="stat-label" role="status" aria-live="polite"></p>
 {% endblock %}
 
 {% block scripts %}
@@ -52,34 +66,49 @@
   const cartes = Array.from(document.querySelectorAll('.contact-card'));
   const champ = document.getElementById('recherche');
   const filtre = document.getElementById('filtre-domaine');
+  const compteur = document.getElementById('nb');
+  const vide = document.getElementById('vide');
+  const statusCopie = document.getElementById('copie-status');
+  const boutonCopierTous = document.getElementById('copier-tous');
+
+  function normaliser(texte) {
+    return texte.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  }
 
   function appliquer() {
-    const q = champ.value.trim().toLowerCase();
+    const q = normaliser(champ.value.trim());
     const d = filtre.value;
     let n = 0;
     cartes.forEach(c => {
-      const ok = (!q || c.dataset.texte.includes(q)) && (!d || c.dataset.domaine === d);
+      const ok = (!q || normaliser(c.dataset.texte).includes(q)) && (!d || c.dataset.domaine === d);
       c.style.display = ok ? '' : 'none';
       if (ok) n++;
     });
-    document.getElementById('nb').textContent = n;
-    document.getElementById('vide').style.display = n ? 'none' : 'block';
+    compteur.textContent = n;
+    vide.style.display = n ? 'none' : 'block';
+    boutonCopierTous.disabled = n === 0;
   }
   champ.addEventListener('input', appliquer);
   filtre.addEventListener('change', appliquer);
+  document.getElementById('effacer-filtres').addEventListener('click', () => setTimeout(appliquer));
 
-  function copier(texte, bouton, libelle) {
-    navigator.clipboard.writeText(texte).then(() => {
-      const ancien = bouton.textContent;
-      bouton.textContent = libelle || 'Copié ✓';
-      setTimeout(() => bouton.textContent = ancien, 1500);
-    });
+  async function copier(texte, confirmation) {
+    try {
+      if (!navigator.clipboard || !window.isSecureContext) {
+        throw new Error('Le presse-papiers nécessite une connexion sécurisée.');
+      }
+      await navigator.clipboard.writeText(texte);
+      statusCopie.textContent = confirmation;
+    } catch (erreur) {
+      statusCopie.textContent = 'Copie impossible dans ce navigateur. Sélectionne et copie l’adresse manuellement.';
+    }
   }
   document.querySelectorAll('.copier').forEach(b =>
-    b.addEventListener('click', () => copier(b.dataset.email, b)));
-  document.getElementById('copier-tous').addEventListener('click', function () {
+    b.addEventListener('click', () => copier(b.dataset.email, 'Adresse copiée.')));
+  boutonCopierTous.addEventListener('click', function () {
     const emails = cartes.filter(c => c.style.display !== 'none').map(c => c.dataset.email);
-    copier(emails.join('; '), this, emails.length + ' emails copiés ✓');
+    copier(emails.join('; '), emails.length + ' adresses copiées.');
   });
+  appliquer();
 </script>
 {% endblock %}

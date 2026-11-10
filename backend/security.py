@@ -31,8 +31,10 @@ TAILLE_MAX_REQUETE = 12 * 1024 * 1024  # 12 Mo (CV : 10 Mo max côté assistant)
 # Environnement
 # ---------------------------------------------------------------------------
 def est_production():
-    """Production = APP_ENV=production, ou plateforme Render détectée."""
+    """Production = APP_ENV=production, ou déploiement sur Render/Vercel."""
     env = os.environ.get("APP_ENV", "").strip().lower()
+    if os.environ.get("VERCEL"):
+        return True
     if env:
         return env == "production"
     return bool(os.environ.get("RENDER"))

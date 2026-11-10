@@ -37,13 +37,16 @@ python backend/app.py        # http://127.0.0.1:5000   (ou double-clic sur lance
 
 ## Base de données
 
-Le schéma est créé/migré par `backend/migrate_sqlite_to_neon.py` (import initial depuis SQLite) puis par les
-fichiers de `database/migrations/`. La migration **001** est idempotente, sauvegarde `applications` dans une table
-de secours, convertit les anciens statuts, ajoute `cv.analyse_json`, des index et des contraintes (en `NOT VALID` :
-aucune ligne existante n'est rejetée). Retour arrière : `001_rollback.sql`. Le script exporte aussi
-`applications` et `cv` en CSV dans `database/sauvegardes/` avant d'appliquer.
+La base utilisée par l'application est PostgreSQL sur Neon. Le schéma existant est mis à jour avec les scripts SQL
+de `database/migrations/`; la migration **001** est idempotente et ajoute notamment `cv.analyse_json`, des index
+et des contraintes sans rejeter les lignes existantes. Pour l'appliquer à Neon depuis ton ordinateur, configure
+`DATABASE_URL` dans `backend/.env`, puis exécute :
 
-L'application fonctionne **avant** l'application de la migration (l'analyse du CV est alors recalculée à la volée).
+```bash
+python database/appliquer_migration.py database/migrations/001_harmonisation.sql
+```
+
+Les anciennes sauvegardes locales ne sont ni suivies par Git ni envoyées à Vercel.
 
 ## Tests
 
@@ -62,51 +65,46 @@ python -m pytest tests -q
 - Requêtes SQL paramétrées, mots de passe hachés (Werkzeug), en-têtes de sécurité (HSTS en production).
 - Aucun secret dans le dépôt : `backend/.env` est ignoré par git. **Si un `.env` a déjà été partagé, régénère toutes les clés.**
 
-## Déploiement (GitHub + Render + Neon)
+## Déploiement Vercel + GitHub + Neon
 
-1. Régénérer les clés (Gemini, mot de passe d'application Gmail, mot de passe Neon) si elles ont été exposées.
-2. Pousser le code sur GitHub (commandes dans la section ci-dessous).
-3. Sur Render : *New + → Blueprint* → choisir le dépôt (`render.yaml`), ou *Web Service* manuel :
-   - Build : `pip install -r requirements.txt`
-   - Start : `gunicorn --chdir backend app:app --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT`
-   - Variables : `APP_ENV=production`, `SECRET_KEY`, `DATABASE_URL` (Neon, `sslmode=require`), `GEMINI_API_KEY`, `ADMIN_EMAILS` (adresses autorisées, séparées par des virgules), `MODE_ENVOI=test` et une configuration email complète.
-     E-mails de vérification et de réinitialisation : Brevo (`BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`, adresse validée dans Brevo) ou Gmail (`GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`, mot de passe d'application). Brevo est prioritaire si ses trois paramètres sont définis. Gmail reste nécessaire pour les autres e-mails de l'application.
-   - Health check : `/healthz`
-4. Appliquer la migration sur Neon (depuis ta machine, avec `DATABASE_URL` de Neon dans `backend/.env`).
-5. Tester l'URL publique : inscription → vérification email → CV → recommandations → favoris → candidature.
+### Avant l'import
 
-### Déploiement Vercel
+1. Vérifie que le projet Neon est actif et que `DATABASE_URL` correspond à la base qui contient le schéma PostgreSQL de l'application. L'URL doit inclure `sslmode=require`.
+2. Si nécessaire, applique les migrations SQL depuis ton ordinateur, jamais au démarrage de chaque fonction Vercel :
+   `python database/appliquer_migration.py database/migrations/001_harmonisation.sql`.
+3. Pousse le dépôt sur GitHub. Les bases et sauvegardes locales sont ignorées et exclues du déploiement ; elles ne servent pas à Vercel.
 
-1. Pousser le dépôt sur GitHub puis l'importer dans Vercel. Garder `Root Directory` sur `./` ; le projet est configuré pour le preset Flask.
-2. Dans **Settings → Environment Variables**, ajouter les variables nécessaires :
-   `APP_ENV=production`, `SECRET_KEY` (au moins 24 caractères aléatoires), `DATABASE_URL` (Neon avec `sslmode=require`),
-   `GEMINI_API_KEY`, `ADMIN_EMAILS` (ajouter `kamiliyaclientcare@gmail.com` pour autoriser ton compte admin) et les variables SMTP décrites ci-dessus.
-   Pour Brevo : `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`. Gmail reste nécessaire pour les autres e-mails : `GMAIL_ADDRESS` et `GMAIL_APP_PASSWORD`.
-3. Laisser Vercel utiliser `requirements.txt` pour installer les dépendances, puis lancer **Deploy**.
-   `pyproject.toml` pointe vers l'application Flask et `vercel.json` configure la fonction Python.
-4. Les fichiers envoyés sont stockés temporairement dans `/tmp` sur Vercel. Ils peuvent disparaître entre deux requêtes ou déploiements ;
-   configure un stockage persistant (par exemple Vercel Blob ou S3) avant de dépendre de la consultation/téléchargement des CV et avatars.
-5. Après le déploiement, vérifier `/healthz`, l'inscription et la réception d'un code sur une vraie adresse.
-6. La carte des entreprises utilise Leaflet/OpenStreetMap et le géocodeur public Nominatim à la demande ; un seul emplacement est recherché par ouverture de carte, avec cache local à la fonction et limitation à une requête par seconde. L'adresse/nom de l'entreprise est transmis à OpenStreetMap pour la recherche.
+### Import et configuration Vercel
+
+1. Dans Vercel, choisis **Add New → Project** et importe le dépôt GitHub. Garde **Root Directory** sur `./`.
+2. Laisse Vercel détecter Flask/Python. `pyproject.toml` déclare le point d'entrée `backend.app:app`, `requirements.txt` liste les dépendances et `vercel.json` configure la fonction Python.
+3. Dans **Settings → Environment Variables**, ajoute les variables nécessaires dans les environnements où tu déploies :
+   - `APP_ENV=production`
+   - `SECRET_KEY` : valeur aléatoire d'au moins 24 caractères ; génère-la localement avec `python -c "import secrets; print(secrets.token_hex(32))"`
+   - `DATABASE_URL` : chaîne Neon PostgreSQL avec `sslmode=require`
+   - `GEMINI_API_KEY` : nécessaire pour les fonctions d'assistance IA
+   - `ADMIN_EMAILS` : liste des adresses admin séparées par des virgules
+   - Email de vérification et de réinitialisation : configuration Brevo complète (`BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`, `EMAIL_EXPEDITEUR`) ou Gmail (`GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`)
+   - `MODE_ENVOI=test` pour commencer ; passe à `reel` seulement après avoir vérifié que les candidatures doivent réellement être envoyées aux entreprises.
+4. N'ajoute jamais `backend/.env` à Git ni aux fichiers de déploiement. Vercel fournit automatiquement `VERCEL`; l'application l'utilise pour activer les protections de production.
+5. Lance **Deploy**. Dans **Deployments → Build Logs**, vérifie l'installation des dépendances et la détection du point d'entrée.
+6. Vérifie ensuite `/healthz`, l'accueil, la page **Contacts**, puis teste inscription, vérification email, connexion et fonctions qui utilisent Neon.
+
+### Limites de l'hébergement
+
+- Les fichiers uploadés sont écrits dans `/tmp` sur Vercel ; ce stockage est temporaire et n'est pas partagé entre les invocations. Configure un stockage objet persistant avant de dépendre de la consultation ultérieure des CV et avatars.
+- La carte des entreprises utilise Leaflet/OpenStreetMap et le géocodeur public Nominatim à la demande. Le nom et l'adresse de l'entreprise sont transmis à OpenStreetMap lors de la recherche.
+- Le limiteur de tentatives est en mémoire et ne fournit pas de quota global partagé entre plusieurs instances.
+- Consulte les conditions d'utilisation des services email, de Neon et des sources de données avant la mise en production.
 
 L'espace `/admin` est réservé aux utilisateurs connectés dont l'adresse figure dans `ADMIN_EMAILS`. Il affiche des statistiques, les utilisateurs et les candidatures récentes, et permet de modifier le statut des candidatures. Il ne permet pas de supprimer des comptes ni des candidatures.
-
-### Limites à connaître en production
-
-- **Fichiers uploadés éphémères sur Render** : les CV et avatars enregistrés sur disque disparaissent à chaque redéploiement
-  (le texte extrait et l'analyse restent en base, donc matching et analyse continuent de fonctionner ; seul « Voir/Télécharger le CV »
-  échoue). Solutions : disque persistant Render (payant) monté sur `backend/uploads` et `backend/static/avatars`, ou stockage objet (S3, Cloudflare R2).
-- Le limiteur de tentatives est en mémoire (une limite par worker). Pour une limite globale : Flask-Limiter + Redis.
-- `MODE_ENVOI=reel` envoie de vrais emails aux entreprises : à n'activer qu'en connaissance de cause.
-- Sources de données : respecter les conditions d'utilisation de chaque plateforme (pas de scraping interdit).
 
 ## Structure
 
 ```
 backend/        application Flask (app.py, security.py, llm_service.py, templates/, static/)
 matching/       matching.py (score explicable), competences.py (référentiel), cv_parser.py (analyse de CV)
-database/       migrations SQL, script d'application, init SQLite historique
-scripts/        scripts ponctuels (import Excel, vérifications) — chemins à adapter si besoin
+database/       migrations PostgreSQL et script d'application local
 tests/          tests automatisés
-DATA SUR EXCEL/ sources de données et rapports Excel d'origine
+DATA SUR EXCEL/ sources locales, exclues du déploiement
 ```

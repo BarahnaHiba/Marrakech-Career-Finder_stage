@@ -1,0 +1,23 @@
+.venv
+.git
+.pytest_cache
+__pycache__
+.env
+*.env
+backend/.env
+tests
+docs
+scripts
+data
+database
+DATA\ SUR\ EXCEL
+*.ipynb
+*.xlsx
+*.db
+*.sqlite
+*.sqlite3
+requirements-dev.txt
+requirements-lock.txt
+backend/static
+backend/test_*.py
+backend/schema_report.txt

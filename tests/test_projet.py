@@ -1,5 +1,6 @@
 """Contrôles statiques : templates, cohérence statuts/migration, absence de secrets, routes sensibles."""
 import ast
+import json
 import re
 from pathlib import Path
 
@@ -119,3 +120,21 @@ def test_fichiers_de_production_presents():
     for nom in ["requirements.txt", "Procfile", "render.yaml", ".env.example", ".gitignore", "README.md"]:
         assert (RACINE / nom).exists(), nom
     assert "gunicorn" in (RACINE / "requirements.txt").read_text()
+
+
+def test_configuration_vercel_flask_est_coherente():
+    vercel = json.loads((RACINE / "vercel.json").read_text(encoding="utf-8"))
+    fonction = vercel["functions"]["backend/app.py"]
+
+    assert fonction["maxDuration"] == 120
+    assert len(fonction["excludeFiles"]) <= 256
+    assert 'entrypoint = "backend.app:app"' in (RACINE / "pyproject.toml").read_text(encoding="utf-8")
+
+
+def test_vercel_exclut_secrets_et_donnees_locales():
+    exclusions = (RACINE / ".vercelignore").read_text(encoding="utf-8").splitlines()
+
+    assert ".env" in exclusions
+    assert "backend/.env" in exclusions
+    assert "database" in exclusions
+    assert "public/static" not in exclusions
